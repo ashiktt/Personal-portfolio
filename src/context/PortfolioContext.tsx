@@ -7,7 +7,7 @@ import {
   INITIAL_TOOLS, 
   INITIAL_SKILL_GROUPS 
 } from '../data/initialData';
-import { fetchProfilePhotoUrl } from '../lib/supabase';
+import { fetchFullSiteData, saveFullSiteData, fetchProfilePhotoUrl } from '../lib/supabase';
 
 interface PortfolioContextType {
   profile: SiteProfile;
@@ -157,30 +157,89 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => clearInterval(interval);
   }, []);
 
-  // Sync Profile Photo from Supabase on mount and expose refresh handler
+  // Supabase Cloud Synchronization (Loads latest data from Supabase for all visitors worldwide)
+  const isInitialMount = React.useRef(true);
+
   const refreshProfilePhoto = async () => {
     try {
-      const remotePhotoUrl = await fetchProfilePhotoUrl();
-      if (remotePhotoUrl) {
-        setProfile((prev) => {
-          if (prev.avatarUrl !== remotePhotoUrl) {
-            const next = { ...prev, avatarUrl: remotePhotoUrl };
-            try {
-              localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next));
-            } catch {}
-            return next;
-          }
-          return prev;
-        });
+      const remote = await fetchFullSiteData();
+      if (remote) {
+        if (remote.profile) {
+          setProfile((prev) => ({ ...prev, ...remote.profile }));
+        }
+        if (remote.projects && Array.isArray(remote.projects) && remote.projects.length > 0) {
+          setProjects(remote.projects);
+        }
+        if (remote.tools && Array.isArray(remote.tools) && remote.tools.length > 0) {
+          setTools(remote.tools);
+        }
+        if (remote.skillGroups && Array.isArray(remote.skillGroups) && remote.skillGroups.length > 0) {
+          setSkillGroups(remote.skillGroups);
+        }
+        if (remote.certificates && Array.isArray(remote.certificates) && remote.certificates.length > 0) {
+          setCertificates(remote.certificates);
+        }
       }
     } catch (err) {
-      console.warn('Could not sync profile photo from Supabase:', err);
+      console.warn('Could not sync full site data from Supabase:', err);
     }
   };
 
   useEffect(() => {
-    refreshProfilePhoto();
+    let isMounted = true;
+    const loadFromCloud = async () => {
+      try {
+        const remote = await fetchFullSiteData();
+        if (!isMounted || !remote) {
+          isInitialMount.current = false;
+          return;
+        }
+        if (remote.profile) {
+          setProfile((prev) => ({ ...prev, ...remote.profile }));
+        }
+        if (remote.projects && Array.isArray(remote.projects) && remote.projects.length > 0) {
+          setProjects(remote.projects);
+        }
+        if (remote.tools && Array.isArray(remote.tools) && remote.tools.length > 0) {
+          setTools(remote.tools);
+        }
+        if (remote.skillGroups && Array.isArray(remote.skillGroups) && remote.skillGroups.length > 0) {
+          setSkillGroups(remote.skillGroups);
+        }
+        if (remote.certificates && Array.isArray(remote.certificates) && remote.certificates.length > 0) {
+          setCertificates(remote.certificates);
+        }
+      } catch (e) {
+        console.warn('Initial cloud sync error:', e);
+      } finally {
+        setTimeout(() => {
+          if (isMounted) isInitialMount.current = false;
+        }, 600);
+      }
+    };
+
+    loadFromCloud();
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // Auto-sync all admin changes to Supabase cloud
+  useEffect(() => {
+    if (isInitialMount.current) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      saveFullSiteData({
+        profile,
+        projects,
+        tools,
+        skillGroups,
+        certificates,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [profile, projects, tools, skillGroups, certificates]);
 
   // Sync to LocalStorage (continuous safety backup)
   useEffect(() => {

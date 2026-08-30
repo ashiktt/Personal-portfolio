@@ -31,6 +31,81 @@ export interface UploadResult {
   error?: string;
 }
 
+export interface SiteCloudData {
+  profile?: any;
+  projects?: any[];
+  certificates?: any[];
+  tools?: any[];
+  skillGroups?: any[];
+}
+
+/**
+ * Fetches the entire site data (profile, projects, tools, skills, certificates) from Supabase
+ */
+export const fetchFullSiteData = async (): Promise<SiteCloudData | null> => {
+  if (!supabase || !isSupabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('portfolio_settings')
+      .select('profile_photo_url, site_data')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Supabase: Error fetching site_data:', error.message);
+      return null;
+    }
+
+    const siteData: SiteCloudData = (data?.site_data as SiteCloudData) || {};
+    if (data?.profile_photo_url) {
+      if (!siteData.profile) {
+        siteData.profile = {};
+      }
+      siteData.profile.avatarUrl = data.profile_photo_url;
+    }
+
+    return siteData;
+  } catch (err: any) {
+    console.warn('Supabase: Error fetching full site data:', err);
+    return null;
+  }
+};
+
+/**
+ * Persists the entire site data (profile, projects, tools, skills, certificates) to Supabase
+ */
+export const saveFullSiteData = async (siteData: SiteCloudData): Promise<boolean> => {
+  if (!supabase || !isSupabaseConfigured()) {
+    return false;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('portfolio_settings')
+      .upsert(
+        {
+          id: 1,
+          profile_photo_url: siteData.profile?.avatarUrl || null,
+          site_data: siteData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+    if (error) {
+      console.error('Supabase: Error saving site_data:', error);
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.error('Supabase: Network error saving full site data:', err);
+    return false;
+  }
+};
+
 /**
  * Fetches the persistent profile photo URL from Supabase 'portfolio_settings' table
  */
