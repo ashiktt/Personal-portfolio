@@ -3,8 +3,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export const DEFAULT_FALLBACK_AVATAR =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const supabaseUrl =
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
+  'https://uwowytatldwfbxdgruxf.supabase.co';
+const supabaseAnonKey =
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
+  'sb_publishable_lN91wbBr3V52JOfq2JzFcg_-QA_Qv7S';
 
 export const isSupabaseConfigured = (): boolean => {
   return (
@@ -16,9 +20,9 @@ export const isSupabaseConfigured = (): boolean => {
   );
 };
 
-// Initialize client if env vars are present
+// Initialize client
 export const supabase: SupabaseClient | null = isSupabaseConfigured()
-  ? createClient(supabaseUrl!, supabaseAnonKey!)
+  ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
 export interface UploadResult {
