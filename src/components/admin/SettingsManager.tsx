@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { IconLinkedin, IconGithub } from '../ui/BrandIcons';
 import { usePortfolio } from '../../context/PortfolioContext';
+import { uploadProfilePhoto, isSupabaseConfigured, DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
 
 interface SettingsManagerProps {
   onShowToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void;
@@ -29,6 +30,8 @@ interface SettingsManagerProps {
 
 export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast }) => {
   const { profile, updateProfile, changeAdminPasscode, exportData, importData, resetToDefaults } = usePortfolio();
+
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const [formData, setFormData] = useState({
     name: profile.name,
@@ -100,21 +103,70 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
     });
   }, [profile]);
 
-  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 3 * 1024 * 1024) {
-        onShowToast('error', 'Image Too Large', 'Please select a photo smaller than 3MB.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setFormData((prev) => ({ ...prev, avatarUrl: event.target!.result as string }));
-          onShowToast('success', 'Photo Loaded', 'Profile photo preview updated. Click "Save All Settings" to apply.');
+    if (!file) return;
+
+    // Reset input value so choosing the same file again triggers onChange
+    e.target.value = '';
+
+    // File validation: jpg, jpeg, png, webp
+    const validMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const validExts = ['jpg', 'jpeg', 'png', 'webp'];
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+
+    if (!validMimes.includes(file.type) && !validExts.includes(fileExt)) {
+      onShowToast('error', 'Invalid File Type', 'Please select a JPG, JPEG, PNG, or WEBP photo.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      onShowToast('error', 'Image Too Large', 'Please select a photo smaller than 5MB.');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      if (isSupabaseConfigured()) {
+        const result = await uploadProfilePhoto(file);
+        if (result.success && result.publicUrl) {
+          setFormData((prev) => ({ ...prev, avatarUrl: result.publicUrl! }));
+          updateProfile({ avatarUrl: result.publicUrl });
+          onShowToast(
+            'success',
+            'Profile Photo Saved!',
+            'Uploaded to Supabase Storage & updated in database. Persists across all devices.'
+          );
+        } else {
+          onShowToast(
+            'error',
+            'Upload Failed',
+            result.error || 'Failed to upload photo to Supabase.'
+          );
         }
-      };
-      reader.readAsDataURL(file);
+      } else {
+        // Fallback for local preview if Supabase env vars are not set
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            const dataUrl = event.target.result as string;
+            setFormData((prev) => ({ ...prev, avatarUrl: dataUrl }));
+            updateProfile({ avatarUrl: dataUrl });
+            onShowToast(
+              'info',
+              'Local Preview Updated',
+              'To save permanently in cloud, add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.'
+            );
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch (err: any) {
+      console.error('Error during avatar file upload:', err);
+      onShowToast('error', 'Upload Error', err?.message || 'An unexpected error occurred.');
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -372,7 +424,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
             <div className="md:col-span-4 flex flex-col items-center">
               <div className="relative w-40 h-48 rounded-2xl overflow-hidden bg-slate-900 border border-slate-700/80 shadow-xl group">
                 <img
-                  src={formData.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'}
+                  src={formData.avatarUrl || DEFAULT_FALLBACK_AVATAR}
                   alt="Profile Preview"
                   className="w-full h-full object-cover object-top"
                 />
@@ -387,32 +439,49 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
             <div className="md:col-span-8 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-300">
-                  Upload Photo from Computer (.jpg, .png, .webp)
+                  Upload Photo from Computer (.jpg, .jpeg, .png, .webp)
                 </label>
-                <div className="flex gap-2">
-                  <label className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white cursor-pointer flex items-center gap-2 text-xs font-medium shadow-md shadow-blue-600/30 transition-all">
-                    <Upload className="w-4 h-4" />
-                    <span>Choose Photo File</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarFileUpload}
-                      className="hidden"
-                    />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label
+                    className={`px-5 py-2.5 rounded-xl text-white flex items-center gap-2 text-xs font-medium shadow-md transition-all ${
+                      isUploadingAvatar
+                        ? 'bg-blue-800 cursor-not-allowed opacity-80'
+                        : 'bg-blue-600 hover:bg-blue-500 cursor-pointer shadow-blue-600/30'
+                    }`}
+                  >
+                    {isUploadingAvatar ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Uploading to Supabase...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        <span>Choose Photo File</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/webp"
+                          onChange={handleAvatarFileUpload}
+                          disabled={isUploadingAvatar}
+                          className="hidden"
+                        />
+                      </>
+                    )}
                   </label>
+                  <span className="text-[11px] text-slate-500">Max size: 5MB</span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-300">
-                  Or Paste Photo / Avatar URL
+                  Or Paste Photo / Avatar Cloud URL
                 </label>
                 <input
                   type="text"
-                  placeholder="https://... or /avatar.jpg"
+                  placeholder="https://... or Supabase public URL"
                   value={formData.avatarUrl}
                   onChange={(e) => setFormData({ ...formData, avatarUrl: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-mono text-xs"
                 />
               </div>
             </div>

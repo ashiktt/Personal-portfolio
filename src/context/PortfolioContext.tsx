@@ -7,6 +7,7 @@ import {
   INITIAL_TOOLS, 
   INITIAL_SKILL_GROUPS 
 } from '../data/initialData';
+import { fetchProfilePhotoUrl } from '../lib/supabase';
 
 interface PortfolioContextType {
   profile: SiteProfile;
@@ -18,6 +19,7 @@ interface PortfolioContextType {
   publishedProjects: Project[];
   isAdminAuthenticated: boolean;
   lockoutRemainingSeconds: number;
+  refreshProfilePhoto: () => Promise<void>;
   updateProfile: (updated: Partial<SiteProfile>) => void;
   addProject: (project: Omit<Project, 'id' | 'createdAt'>) => Project;
   updateProject: (id: string, updated: Partial<Project>) => void;
@@ -153,6 +155,31 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     checkLockout();
     const interval = setInterval(checkLockout, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Sync Profile Photo from Supabase on mount and expose refresh handler
+  const refreshProfilePhoto = async () => {
+    try {
+      const remotePhotoUrl = await fetchProfilePhotoUrl();
+      if (remotePhotoUrl) {
+        setProfile((prev) => {
+          if (prev.avatarUrl !== remotePhotoUrl) {
+            const next = { ...prev, avatarUrl: remotePhotoUrl };
+            try {
+              localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next));
+            } catch {}
+            return next;
+          }
+          return prev;
+        });
+      }
+    } catch (err) {
+      console.warn('Could not sync profile photo from Supabase:', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshProfilePhoto();
   }, []);
 
   // Sync to LocalStorage (continuous safety backup)
@@ -600,6 +627,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         publishedProjects,
         isAdminAuthenticated,
         lockoutRemainingSeconds,
+        refreshProfilePhoto,
         updateProfile,
         addProject,
         updateProject,

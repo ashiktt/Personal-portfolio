@@ -3,6 +3,7 @@ import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { FileText, Sparkles, ArrowUpRight, Compass, ShieldCheck } from 'lucide-react';
 import { IconLinkedin, IconGithub } from '../ui/BrandIcons';
 import { usePortfolio } from '../../context/PortfolioContext';
+import { DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
 
 interface HeroProps {
   onResumeClick: () => void;
@@ -212,7 +213,7 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
                 
                 {/* Photo Image */}
                 <img
-                  src={profile.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80'}
+                  src={profile.avatarUrl || DEFAULT_FALLBACK_AVATAR}
                   alt={profile.name}
                   className="w-full h-full object-cover object-top filter contrast-[1.05] brightness-95 group-hover:contrast-[1.08] group-hover:brightness-100 group-hover:scale-105 transition-all duration-700 ease-out"
                 />
