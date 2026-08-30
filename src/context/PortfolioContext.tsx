@@ -7,7 +7,7 @@ import {
   INITIAL_TOOLS, 
   INITIAL_SKILL_GROUPS 
 } from '../data/initialData';
-import { fetchProfilePhotoUrl } from '../lib/supabase';
+import { fetchPortfolioSettings } from '../lib/supabase';
 
 interface PortfolioContextType {
   profile: SiteProfile;
@@ -157,14 +157,28 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => clearInterval(interval);
   }, []);
 
-  // Sync Profile Photo from Supabase on mount and expose refresh handler
+  // Sync Profile Photo & Resume from Supabase on mount and expose refresh handler
   const refreshProfilePhoto = async () => {
     try {
-      const remotePhotoUrl = await fetchProfilePhotoUrl();
-      if (remotePhotoUrl) {
+      const settings = await fetchPortfolioSettings();
+      if (settings) {
         setProfile((prev) => {
-          if (prev.avatarUrl !== remotePhotoUrl) {
-            const next = { ...prev, avatarUrl: remotePhotoUrl };
+          let hasChanges = false;
+          const next = { ...prev };
+
+          if (settings.profilePhotoUrl && next.avatarUrl !== settings.profilePhotoUrl) {
+            next.avatarUrl = settings.profilePhotoUrl;
+            hasChanges = true;
+          }
+
+          if (settings.resumeUrl && next.resumeUrl !== settings.resumeUrl) {
+            next.resumeUrl = settings.resumeUrl;
+            if (settings.resumeFileName) next.resumeFileName = settings.resumeFileName;
+            if (settings.resumeLastUpdated) next.resumeLastUpdated = settings.resumeLastUpdated;
+            hasChanges = true;
+          }
+
+          if (hasChanges) {
             try {
               localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(next));
             } catch {}
@@ -174,7 +188,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
       }
     } catch (err) {
-      console.warn('Could not sync profile photo from Supabase:', err);
+      console.warn('Could not sync portfolio settings from Supabase:', err);
     }
   };
 

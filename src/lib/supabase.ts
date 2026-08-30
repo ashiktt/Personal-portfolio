@@ -28,13 +28,22 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured()
 export interface UploadResult {
   success: boolean;
   publicUrl?: string;
+  fileName?: string;
+  lastUpdated?: string;
   error?: string;
 }
 
+export interface PortfolioRemoteSettings {
+  profilePhotoUrl?: string | null;
+  resumeUrl?: string | null;
+  resumeFileName?: string | null;
+  resumeLastUpdated?: string | null;
+}
+
 /**
- * Fetches the persistent profile photo URL from Supabase 'portfolio_settings' table
+ * Fetches all persistent settings from Supabase 'portfolio_settings' table
  */
-export const fetchProfilePhotoUrl = async (): Promise<string | null> => {
+export const fetchPortfolioSettings = async (): Promise<PortfolioRemoteSettings | null> => {
   if (!supabase || !isSupabaseConfigured()) {
     return null;
   }
@@ -42,29 +51,39 @@ export const fetchProfilePhotoUrl = async (): Promise<string | null> => {
   try {
     const { data, error } = await supabase
       .from('portfolio_settings')
-      .select('profile_photo_url')
+      .select('*')
       .eq('id', 1)
       .maybeSingle();
 
     if (error) {
-      console.warn('Supabase: Error fetching portfolio_settings profile_photo_url:', error.message);
+      console.warn('Supabase: Error fetching portfolio_settings:', error.message);
       return null;
     }
 
-    if (data?.profile_photo_url && typeof data.profile_photo_url === 'string') {
-      return data.profile_photo_url.trim();
-    }
+    if (!data) return null;
 
-    return null;
+    return {
+      profilePhotoUrl: data.profile_photo_url ? String(data.profile_photo_url).trim() : null,
+      resumeUrl: data.resume_url ? String(data.resume_url).trim() : null,
+      resumeFileName: data.resume_file_name ? String(data.resume_file_name).trim() : null,
+      resumeLastUpdated: data.resume_last_updated ? String(data.resume_last_updated).trim() : null,
+    };
   } catch (err: any) {
-    console.warn('Supabase: Network or client exception while fetching profile photo:', err?.message || err);
+    console.warn('Supabase: Exception while fetching portfolio settings:', err?.message || err);
     return null;
   }
 };
 
 /**
- * Validates, uploads an image to Supabase Storage ('portfolio-images' bucket),
- * and persists the resulting public URL into 'portfolio_settings' table.
+ * Backwards compatibility helper
+ */
+export const fetchProfilePhotoUrl = async (): Promise<string | null> => {
+  const settings = await fetchPortfolioSettings();
+  return settings?.profilePhotoUrl || null;
+};
+
+/**
+ * Uploads profile photo to Supabase Storage ('portfolio-images') & saves to database
  */
 export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
   if (!supabase || !isSupabaseConfigured()) {
@@ -75,10 +94,8 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
     };
   }
 
-  // 1. File Type & Extension Validation
   const validMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   const validExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-
   const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
 
   if (!validMimeTypes.includes(file.type) && !validExtensions.includes(fileExt)) {
@@ -88,7 +105,6 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
     };
   }
 
-  // 2. File Size Validation (Max 5MB)
   const MAX_SIZE_BYTES = 5 * 1024 * 1024;
   if (file.size > MAX_SIZE_BYTES) {
     return {
@@ -98,12 +114,9 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
   }
 
   try {
-    // 3. Generate stable storage file path
-    // Using a timestamped filename inside the 'profile/' folder ensures instant cache busting
     const fileName = `profile-photo-${Date.now()}.${fileExt || 'jpg'}`;
     const filePath = `profile/${fileName}`;
 
-    // 4. Upload to 'portfolio-images' bucket
     const { error: uploadError } = await supabase.storage
       .from('portfolio-images')
       .upload(filePath, file, {
@@ -120,7 +133,6 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
       };
     }
 
-    // 5. Get Public URL from Supabase Storage
     const { data: urlData } = supabase.storage
       .from('portfolio-images')
       .getPublicUrl(filePath);
@@ -134,7 +146,6 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
       };
     }
 
-    // 6. Persist the Public URL in 'portfolio_settings' table (id = 1)
     const { error: dbError } = await supabase
       .from('portfolio_settings')
       .upsert(
@@ -150,7 +161,7 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
       console.error('Supabase Database Error saving profile_photo_url:', dbError);
       return {
         success: false,
-        error: `Image uploaded to Storage, but failed to save in database: ${dbError.message}. Run the SQL migration in Supabase SQL editor.`,
+        error: `Image uploaded to Storage, but failed to save in database: ${dbError.message}.`,
       };
     }
 
@@ -163,6 +174,106 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
     return {
       success: false,
       error: err?.message || 'Network error occurred while uploading to Supabase.',
+    };
+  }
+};
+
+/**
+ * Uploads Resume document (.pdf, .doc, .docx) to Supabase Storage ('portfolio-images') & saves to database
+ */
+export const uploadResumeDocument = async (file: File): Promise<UploadResult> => {
+  if (!supabase || !isSupabaseConfigured()) {
+    return {
+      success: false,
+      error: 'Supabase is not configured. Please add Supabase credentials.',
+    };
+  }
+
+  const validExtensions = ['pdf', 'doc', 'docx'];
+  const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+
+  if (!validExtensions.includes(fileExt) && !file.type.includes('pdf')) {
+    return {
+      success: false,
+      error: 'Invalid file format. Please select a PDF or DOC document.',
+    };
+  }
+
+  const MAX_SIZE_BYTES = 15 * 1024 * 1024;
+  if (file.size > MAX_SIZE_BYTES) {
+    return {
+      success: false,
+      error: 'File is too large. Please select a document smaller than 15MB.',
+    };
+  }
+
+  try {
+    const cleanFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const filePath = `documents/${Date.now()}-${cleanFileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('portfolio-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: file.type || 'application/pdf',
+      });
+
+    if (uploadError) {
+      console.error('Supabase Storage Resume Upload Error:', uploadError);
+      return {
+        success: false,
+        error: `Resume upload failed: ${uploadError.message}.`,
+      };
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('portfolio-images')
+      .getPublicUrl(filePath);
+
+    const publicUrl = urlData?.publicUrl;
+
+    if (!publicUrl) {
+      return {
+        success: false,
+        error: 'Failed to retrieve public URL for resume from Supabase.',
+      };
+    }
+
+    const nowStr = new Date().toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const { error: dbError } = await supabase
+      .from('portfolio_settings')
+      .upsert(
+        {
+          id: 1,
+          resume_url: publicUrl,
+          resume_file_name: file.name,
+          resume_last_updated: nowStr,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+    if (dbError) {
+      console.warn('Note: Could not update portfolio_settings with resume metadata:', dbError.message);
+    }
+
+    return {
+      success: true,
+      publicUrl,
+      fileName: file.name,
+      lastUpdated: nowStr,
+    };
+  } catch (err: any) {
+    console.error('Unexpected error during resume upload:', err);
+    return {
+      success: false,
+      error: err?.message || 'Network error occurred while uploading resume to Supabase.',
     };
   }
 };
