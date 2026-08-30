@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { IconLinkedin, IconGithub } from '../ui/BrandIcons';
 import { usePortfolio } from '../../context/PortfolioContext';
-import { uploadProfilePhoto, uploadResumeDocument, isSupabaseConfigured, DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
+import { uploadProfilePhoto, isSupabaseConfigured, DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
 
 interface SettingsManagerProps {
   onShowToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void;
@@ -32,7 +32,6 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
   const { profile, updateProfile, changeAdminPasscode, exportData, importData, resetToDefaults } = usePortfolio();
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [isUploadingResume, setIsUploadingResume] = useState(false);
 
   const [formData, setFormData] = useState({
     name: profile.name,
@@ -171,87 +170,27 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
     }
   };
 
-  const handleResumeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResumeFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Reset input value
-    e.target.value = '';
-
-    const validExtensions = ['pdf', 'doc', 'docx'];
-    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
-
-    if (!validExtensions.includes(fileExt) && !file.type.includes('pdf')) {
-      onShowToast('error', 'Invalid File Type', 'Please select a PDF or Word document (.pdf, .doc, .docx).');
-      return;
-    }
-
-    if (file.size > 15 * 1024 * 1024) {
-      onShowToast('error', 'File Too Large', 'Please select a resume file smaller than 15MB.');
-      return;
-    }
-
-    setIsUploadingResume(true);
-
-    try {
-      if (isSupabaseConfigured()) {
-        const result = await uploadResumeDocument(file);
-        if (result.success && result.publicUrl) {
-          const nowStr =
-            result.lastUpdated ||
-            new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        onShowToast('error', 'File Too Large', 'Please select a resume file smaller than 10MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          const nowStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           setFormData((prev) => ({
             ...prev,
-            resumeUrl: result.publicUrl!,
-            resumeFileName: result.fileName || file.name,
+            resumeUrl: event.target!.result as string,
+            resumeFileName: file.name,
             resumeLastUpdated: nowStr,
           }));
-
-          updateProfile({
-            resumeUrl: result.publicUrl,
-            resumeFileName: result.fileName || file.name,
-            resumeLastUpdated: nowStr,
-          });
-
-          onShowToast(
-            'success',
-            'Resume PDF Saved!',
-            `"${file.name}" uploaded to Supabase Storage & available across all devices.`
-          );
-        } else {
-          onShowToast('error', 'Resume Upload Failed', result.error || 'Could not upload resume to Supabase.');
+          onShowToast('success', 'Resume PDF Loaded', `"${file.name}" loaded! Click "Save All Settings" to apply.`);
         }
-      } else {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            const nowStr = new Date().toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            });
-            setFormData((prev) => ({
-              ...prev,
-              resumeUrl: event.target!.result as string,
-              resumeFileName: file.name,
-              resumeLastUpdated: nowStr,
-            }));
-            updateProfile({
-              resumeUrl: event.target!.result as string,
-              resumeFileName: file.name,
-              resumeLastUpdated: nowStr,
-            });
-            onShowToast('success', 'Resume Loaded Locally', `"${file.name}" loaded for preview.`);
-          }
-        };
-        reader.readAsDataURL(file);
-      }
-    } catch (err: any) {
-      console.error('Error uploading resume:', err);
-      onShowToast('error', 'Upload Error', err?.message || 'Failed to process resume file.');
-    } finally {
-      setIsUploadingResume(false);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -359,12 +298,23 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold text-white">Profile, Resume &amp; Security Settings</h2>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Manage your real resume PDF, personal photo, branding, contact channels, EmailJS keys, and admin security.
-        </p>
+      {/* Header with quick save button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+        <div>
+          <h2 className="text-xl font-bold text-white">Profile, Resume &amp; Security Settings</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Manage your real resume PDF, personal photo, branding, contact channels, EmailJS keys, and admin security.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSaveSettings}
+          className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-lg shadow-blue-600/30 flex items-center gap-2 shrink-0 transition-all"
+        >
+          <Save className="w-4 h-4" />
+          <span>Save All Settings</span>
+        </button>
       </div>
 
       <form onSubmit={handleSaveSettings} className="space-y-8">
@@ -438,33 +388,17 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
                 Upload Real Resume File from Computer (.pdf, .doc)
               </label>
               <div className="flex items-center gap-2">
-                <label
-                  className={`px-5 py-2.5 rounded-xl text-white flex items-center gap-2 text-xs font-medium shadow-md transition-all ${
-                    isUploadingResume
-                      ? 'bg-blue-800 cursor-not-allowed opacity-80'
-                      : 'bg-blue-600 hover:bg-blue-500 cursor-pointer shadow-blue-600/30'
-                  }`}
-                >
-                  {isUploadingResume ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Uploading to Supabase...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      <span>Choose Resume PDF</span>
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,application/pdf"
-                        onChange={handleResumeFileUpload}
-                        disabled={isUploadingResume}
-                        className="hidden"
-                      />
-                    </>
-                  )}
+                <label className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white cursor-pointer flex items-center gap-2 text-xs font-medium shadow-md shadow-blue-600/30 transition-all">
+                  <Upload className="w-4 h-4" />
+                  <span>Choose Resume PDF</span>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleResumeFileUpload}
+                    className="hidden"
+                  />
                 </label>
-                <span className="text-[11px] text-slate-500">Max size: 15MB</span>
+                <span className="text-[11px] text-slate-500">Max size: 10MB</span>
               </div>
             </div>
 

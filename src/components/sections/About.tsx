@@ -48,11 +48,8 @@ export const About: React.FC = () => {
           {/* Main Story Narrative */}
           <div className="lg:col-span-7 flex flex-col justify-between p-6 sm:p-8 rounded-3xl bg-[#0E1322]/75 border border-slate-800/80 backdrop-blur-xl shadow-xl space-y-6">
             <div className="space-y-4">
-              <p className="text-base sm:text-lg text-slate-200 leading-relaxed">
-                I'm currently pursuing a B.Tech in Computer Science &amp; Engineering at Gulzar Group of Institutes (2023–2027), while building my skills in UI/UX design, interaction design, and frontend development.
-              </p>
-              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-                I enjoy turning complex problems into clear, intuitive digital experiences through user flows, wireframing, prototyping, and visual design.
+              <p className="text-base sm:text-lg text-slate-200 leading-relaxed whitespace-pre-line">
+                {profile.aboutText || "I'm currently pursuing a B.Tech in Computer Science & Engineering at Gulzar Group of Institutes (2023–2027), while building my skills in UI/UX design, interaction design, and frontend development.\n\nI enjoy turning complex problems into clear, intuitive digital experiences through user flows, wireframing, prototyping, and visual design."}
               </p>
             </div>
             
