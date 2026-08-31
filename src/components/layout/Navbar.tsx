@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, FileText, ArrowUpRight, Sparkles, Shield } from 'lucide-react';
+import { Menu, X, FileText, ArrowUpRight, Shield, Sparkles, Compass, Layers, FolderGit2, Award, Mail } from 'lucide-react';
 import { usePortfolio } from '../../context/PortfolioContext';
 
 interface NavbarProps {
@@ -13,12 +13,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onResumeClick }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
 
+  // Track active section and scroll state
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 30);
+      setIsScrolled(window.scrollY > 20);
 
       const sections = ['home', 'about', 'skills', 'projects', 'certificates', 'contact'];
-      const scrollPosition = window.scrollY + 200;
+      const scrollPosition = window.scrollY + 120;
 
       for (const section of sections) {
         const el = document.getElementById(section);
@@ -37,20 +38,50 @@ export const Navbar: React.FC<NavbarProps> = ({ onResumeClick }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
+  // Close mobile menu on resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768 && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [mobileMenuOpen]);
+
   const navLinks = [
-    { name: 'Home', href: '#home', id: 'home' },
-    { name: 'About', href: '#about', id: 'about' },
-    { name: 'Skills', href: '#skills', id: 'skills' },
-    { name: 'Projects', href: '#projects', id: 'projects' },
-    { name: 'Certificates', href: '#certificates', id: 'certificates' },
-    { name: 'Contact', href: '#contact', id: 'contact' },
+    { name: 'Home', href: '#home', id: 'home', icon: <Sparkles className="w-4 h-4 text-blue-400" /> },
+    { name: 'About', href: '#about', id: 'about', icon: <Compass className="w-4 h-4 text-sky-400" /> },
+    { name: 'Skills', href: '#skills', id: 'skills', icon: <Layers className="w-4 h-4 text-indigo-400" /> },
+    { name: 'Projects', href: '#projects', id: 'projects', icon: <FolderGit2 className="w-4 h-4 text-emerald-400" /> },
+    { name: 'Certificates', href: '#certificates', id: 'certificates', icon: <Award className="w-4 h-4 text-amber-400" /> },
+    { name: 'Contact', href: '#contact', id: 'contact', icon: <Mail className="w-4 h-4 text-rose-400" /> },
   ];
 
   const handleNavClick = (href: string) => {
     setMobileMenuOpen(false);
-    const element = document.querySelector(href);
+    const targetId = href.replace('#', '');
+    const element = document.getElementById(targetId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      const navHeight = 74;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - navHeight;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth',
+      });
     }
   };
 
@@ -58,35 +89,35 @@ export const Navbar: React.FC<NavbarProps> = ({ onResumeClick }) => {
     <header
       className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
         isScrolled
-          ? 'py-3.5 bg-[#090A0F]/80 backdrop-blur-xl border-b border-white/[0.07] shadow-xl shadow-black/40'
-          : 'py-5 bg-transparent'
+          ? 'py-3 bg-[#090A0F]/90 backdrop-blur-xl border-b border-white/[0.08] shadow-xl shadow-black/60'
+          : 'py-4 sm:py-5 bg-transparent'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Brand Logo & Live Status */}
+        {/* Brand Logo & Name */}
         <a
           href="#home"
           onClick={(e) => {
             e.preventDefault();
             handleNavClick('#home');
           }}
-          className="group flex items-center gap-3"
+          className="group flex items-center gap-2.5 sm:gap-3 shrink-0"
         >
-          <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 border border-blue-400/30 text-white font-bold text-base shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
+          <div className="relative flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 border border-blue-400/30 text-white font-bold text-sm sm:text-base shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
             AR
-            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 sm:h-3 sm:w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-emerald-500"></span>
             </span>
           </div>
 
           <div className="flex flex-col">
-            <span className="font-semibold text-slate-100 group-hover:text-blue-400 transition-colors tracking-tight text-sm sm:text-base">
+            <span className="font-bold text-slate-100 group-hover:text-blue-400 transition-colors tracking-tight text-sm sm:text-base leading-tight">
               {profile.name}
             </span>
-            <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+            <span className="text-[10px] sm:text-[11px] text-slate-400 font-mono flex items-center gap-1.5 leading-tight mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-              {profile.role}
+              {profile.role.split('•')[0].trim()}
             </span>
           </div>
         </a>
@@ -122,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onResumeClick }) => {
           })}
         </nav>
 
-        {/* Right CTA Actions */}
+        {/* Right Desktop CTA Actions */}
         <div className="hidden md:flex items-center gap-3">
           {isAdminAuthenticated && (
             <a
@@ -144,11 +175,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onResumeClick }) => {
           </button>
         </div>
 
-        {/* Mobile Hamburger Button */}
+        {/* Mobile Hamburger / Close Button */}
         <div className="flex md:hidden items-center gap-2">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2.5 rounded-xl bg-[#121624]/90 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition-colors"
+            className={`p-2.5 rounded-xl border transition-all duration-200 ${
+              mobileMenuOpen
+                ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30'
+                : 'bg-[#121624]/90 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700'
+            }`}
             aria-label={mobileMenuOpen ? 'Close Menu' : 'Open Menu'}
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -156,59 +191,82 @@ export const Navbar: React.FC<NavbarProps> = ({ onResumeClick }) => {
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Full Mobile Drawer Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25 }}
-            className="md:hidden border-b border-slate-800 bg-[#090A0F]/95 backdrop-blur-2xl overflow-hidden px-4 py-6"
-          >
-            <div className="flex flex-col gap-2">
-              {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleNavClick(link.href);
-                  }}
-                  className={`px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    activeSection === link.id
-                      ? 'bg-blue-600/15 text-blue-400 border border-blue-500/30'
-                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                  }`}
-                >
-                  {link.name}
-                </a>
-              ))}
+          <>
+            {/* Backdrop Blur Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 top-[60px] sm:top-[70px] bg-black/80 backdrop-blur-md z-30 md:hidden"
+            />
 
-              <div className="pt-4 mt-2 border-t border-slate-800 flex flex-col gap-2.5">
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onResumeClick();
-                  }}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 text-white font-medium text-sm shadow-lg shadow-blue-600/30"
-                >
-                  <FileText className="w-4 h-4" />
-                  View & Download Resume
-                </button>
+            {/* Slide Down Mobile Menu */}
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="fixed top-[60px] sm:top-[70px] left-0 right-0 bg-[#0A0D17]/98 border-b border-slate-800/90 backdrop-blur-2xl z-40 md:hidden max-h-[calc(100vh-80px)] overflow-y-auto px-4 py-5 shadow-2xl shadow-black/90"
+            >
+              <div className="flex flex-col gap-1.5 max-w-lg mx-auto">
+                {navLinks.map((link) => {
+                  const isActive = activeSection === link.id;
+                  return (
+                    <button
+                      key={link.name}
+                      onClick={() => handleNavClick(link.href)}
+                      className={`flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-medium transition-all w-full text-left ${
+                        isActive
+                          ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40 shadow-sm'
+                          : 'text-slate-200 hover:bg-slate-800/60 active:bg-slate-800/80 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="p-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                          {link.icon}
+                        </span>
+                        <span className="font-semibold">{link.name}</span>
+                      </div>
+                      {isActive && (
+                        <span className="text-[11px] font-mono text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                          Active
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
 
-                {isAdminAuthenticated && (
-                  <a
-                    href="/admin"
-                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 text-sm font-medium"
+                <div className="pt-4 mt-2 border-t border-slate-800/90 flex flex-col gap-2.5">
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onResumeClick();
+                    }}
+                    className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-sm shadow-xl shadow-blue-600/30 active:scale-[0.98] transition-all border border-blue-400/30"
                   >
-                    <Shield className="w-4 h-4" />
-                    Admin Dashboard
-                  </a>
-                )}
+                    <FileText className="w-4 h-4 text-blue-200" />
+                    <span>View &amp; Download Resume</span>
+                    <ArrowUpRight className="w-4 h-4 text-blue-200" />
+                  </button>
+
+                  {isAdminAuthenticated && (
+                    <a
+                      href="/admin"
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 text-sm font-medium active:bg-indigo-500/20 transition-all"
+                    >
+                      <Shield className="w-4 h-4" />
+                      <span>Admin Dashboard</span>
+                    </a>
+                  )}
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </header>

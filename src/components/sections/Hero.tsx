@@ -81,60 +81,62 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
 
           {/* Main Headings */}
           <div className="space-y-2">
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.08]">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-[1.1]">
               {profile.name}
             </h1>
             <div className="flex items-center gap-3">
-              <span className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
+              <span className="text-lg sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
                 {profile.role}
               </span>
             </div>
           </div>
 
           {/* Hero Headline */}
-          <p className="text-lg sm:text-xl lg:text-2xl font-medium text-slate-200 leading-snug max-w-2xl">
+          <p className="text-base sm:text-xl lg:text-2xl font-medium text-slate-200 leading-snug max-w-2xl">
             &ldquo;{profile.heroHeadline}&rdquo;
           </p>
 
           {/* Hero Short Intro */}
-          <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-xl">
+          <p className="text-xs sm:text-base text-slate-400 leading-relaxed max-w-xl">
             {profile.heroIntro}
           </p>
 
-          {/* Action Buttons: Resume + LinkedIn & GitHub (Strict: NO Contact Me button) */}
-          <div className="flex flex-wrap items-center gap-4 pt-2">
+          {/* Action Buttons: Resume + LinkedIn & GitHub */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 w-full sm:w-auto">
             <button
               onClick={onResumeClick}
-              className="group flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white font-semibold text-sm shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all border border-blue-400/30"
+              className="group flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white font-semibold text-sm shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all border border-blue-400/30"
             >
               <FileText className="w-4 h-4 text-blue-100 group-hover:rotate-6 transition-transform" />
               <span>View &amp; Download Resume</span>
               <ArrowUpRight className="w-4 h-4 text-blue-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </button>
 
-            {/* LinkedIn Button */}
-            <a
-              href={profile.linkedInUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-3.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-blue-400 hover:border-blue-500/40 hover:bg-slate-850 transition-all font-medium text-sm shadow-sm"
-              aria-label="LinkedIn Profile"
-            >
-              <IconLinkedin className="w-4 h-4 text-[#0A66C2]" />
-              <span className="hidden sm:inline">LinkedIn</span>
-            </a>
+            <div className="flex items-center gap-3">
+              {/* LinkedIn Button */}
+              <a
+                href={profile.linkedInUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-blue-400 hover:border-blue-500/40 hover:bg-slate-850 transition-all font-medium text-sm shadow-sm"
+                aria-label="LinkedIn Profile"
+              >
+                <IconLinkedin className="w-4 h-4 text-[#0A66C2]" />
+                <span>LinkedIn</span>
+              </a>
 
-            {/* GitHub Button */}
-            <a
-              href={profile.githubUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-3.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-850 transition-all font-medium text-sm shadow-sm"
-              aria-label="GitHub Profile"
-            >
-              <IconGithub className="w-4 h-4" />
-              <span className="hidden sm:inline">GitHub</span>
-            </a>
+              {/* GitHub Button */}
+              <a
+                href={profile.githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-850 transition-all font-medium text-sm shadow-sm"
+                aria-label="GitHub Profile"
+              >
+                <IconGithub className="w-4 h-4" />
+                <span>GitHub</span>
+              </a>
+            </div>
           </div>
 
           {/* Quick Metrics / Focus Area Pills */}
