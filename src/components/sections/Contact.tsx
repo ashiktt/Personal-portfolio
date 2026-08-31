@@ -7,6 +7,7 @@ import emailjs from '@emailjs/browser';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { useLiveTime } from '../../hooks/useLiveTime';
 import { SpotlightCard } from '../ui/SpotlightCard';
+import { insertContactMessage } from '../../lib/supabase';
 
 interface ContactProps {
   onShowToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void;
@@ -51,7 +52,15 @@ export const Contact: React.FC<ContactProps> = ({ onShowToast }) => {
     setIsSubmitting(true);
 
     try {
-      // 1. Immediately store in local Admin Inbox
+      // 1. Immediately store in Supabase Cloud Database (for online Admin Inbox)
+      await insertContactMessage({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        subject: formData.subject.trim() || 'Portfolio Inquiry',
+        message: formData.message.trim(),
+      });
+
+      // 2. Store in local state
       addMessage({
         name: formData.name.trim(),
         email: formData.email.trim(),
@@ -59,33 +68,54 @@ export const Contact: React.FC<ContactProps> = ({ onShowToast }) => {
         message: formData.message.trim(),
       });
 
-      const { serviceId, templateId, publicKey } = profile.emailJsConfig;
+      // 3. Direct Email Dispatch to your Gmail address
+      const targetEmail = profile.email || 'tusarashikur@gmail.com';
+      try {
+        await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(targetEmail)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            _subject: `New Portfolio Message from ${formData.name.trim()}: ${formData.subject.trim() || 'Inquiry'}`,
+            Name: formData.name.trim(),
+            Email: formData.email.trim(),
+            Subject: formData.subject.trim() || 'Portfolio Inquiry',
+            Message: formData.message.trim(),
+            _template: 'table',
+          }),
+        });
+      } catch (mailErr) {
+        console.warn('Direct email dispatch note:', mailErr);
+      }
 
-      // Check if real EmailJS keys have been configured in Admin
-      const isConfigured =
+      // 4. Optional EmailJS backup if configured
+      const { serviceId, templateId, publicKey } = profile.emailJsConfig || {};
+      const isEmailJsConfigured =
         serviceId &&
         templateId &&
         publicKey &&
         serviceId !== 'service_contact' &&
         publicKey !== 'user_public_key';
 
-      if (isConfigured) {
-        // Real EmailJS Send
-        await emailjs.send(
-          serviceId,
-          templateId,
-          {
-            from_name: formData.name,
-            reply_to: formData.email,
-            subject: formData.subject || 'Portfolio Inquiry',
-            message: formData.message,
-            to_name: profile.name,
-          },
-          publicKey
-        );
-      } else {
-        // Simulated network delay for development/preview
-        await new Promise((resolve) => setTimeout(resolve, 800));
+      if (isEmailJsConfigured) {
+        try {
+          await emailjs.send(
+            serviceId,
+            templateId,
+            {
+              from_name: formData.name,
+              reply_to: formData.email,
+              subject: formData.subject || 'Portfolio Inquiry',
+              message: formData.message,
+              to_name: profile.name,
+            },
+            publicKey
+          );
+        } catch (ejErr) {
+          console.warn('EmailJS backup error:', ejErr);
+        }
       }
 
       // Trigger Confetti Celebration
@@ -99,7 +129,7 @@ export const Contact: React.FC<ContactProps> = ({ onShowToast }) => {
       onShowToast(
         'success',
         'Message Sent Successfully!',
-        `Thank you ${formData.name}. Your message is recorded and Ashikur will respond promptly.`
+        `Thank you ${formData.name}. Your inquiry is recorded in Ashikur's inbox.`
       );
 
       // Reset form
@@ -110,11 +140,11 @@ export const Contact: React.FC<ContactProps> = ({ onShowToast }) => {
         message: '',
       });
     } catch (err: any) {
-      console.error('EmailJS Submission Error:', err);
+      console.error('Contact Form Submission Error:', err);
       onShowToast(
         'error',
         'Failed to Send Message',
-        'Please email directly at tusarashikur@gmail.com or check EmailJS credentials in Admin.'
+        'Please email directly at tusarashikur@gmail.com.'
       );
     } finally {
       setIsSubmitting(false);

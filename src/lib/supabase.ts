@@ -107,6 +107,97 @@ export const saveFullSiteData = async (siteData: SiteCloudData): Promise<boolean
 };
 
 /**
+ * Contact Message Database Helpers for Supabase
+ */
+export const insertContactMessage = async (msg: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}): Promise<boolean> => {
+  if (!supabase || !isSupabaseConfigured()) return false;
+  try {
+    const { error } = await supabase.from('contact_messages').insert({
+      name: msg.name,
+      email: msg.email,
+      subject: msg.subject,
+      message: msg.message,
+      read: false,
+    });
+    if (error) {
+      console.warn('Supabase: Error inserting contact message:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Supabase: Network error saving contact message:', err);
+    return false;
+  }
+};
+
+export const fetchContactMessages = async (): Promise<any[]> => {
+  if (!supabase || !isSupabaseConfigured()) return [];
+  try {
+    const { data, error } = await supabase
+      .from('contact_messages')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase: Error fetching contact messages:', error.message);
+      return [];
+    }
+    return (
+      data?.map((m) => ({
+        id: m.id,
+        name: m.name,
+        email: m.email,
+        subject: m.subject,
+        message: m.message,
+        read: !!m.read,
+        timestamp: new Date(m.created_at).toLocaleString('en-US', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+      })) || []
+    );
+  } catch (err) {
+    console.error('Supabase: Network error fetching contact messages:', err);
+    return [];
+  }
+};
+
+export const deleteContactMessageFromDb = async (id: string): Promise<boolean> => {
+  if (!supabase || !isSupabaseConfigured()) return false;
+  try {
+    const { error } = await supabase.from('contact_messages').delete().eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+};
+
+export const markContactMessageReadInDb = async (id: string): Promise<boolean> => {
+  if (!supabase || !isSupabaseConfigured()) return false;
+  try {
+    const { error } = await supabase.from('contact_messages').update({ read: true }).eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+};
+
+export const clearContactMessagesInDb = async (): Promise<boolean> => {
+  if (!supabase || !isSupabaseConfigured()) return false;
+  try {
+    const { error } = await supabase.from('contact_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    return !error;
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Fetches the persistent profile photo URL from Supabase 'portfolio_settings' table
  */
 export const fetchProfilePhotoUrl = async (): Promise<string | null> => {

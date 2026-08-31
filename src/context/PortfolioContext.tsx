@@ -7,7 +7,15 @@ import {
   INITIAL_TOOLS, 
   INITIAL_SKILL_GROUPS 
 } from '../data/initialData';
-import { fetchFullSiteData, saveFullSiteData, fetchProfilePhotoUrl } from '../lib/supabase';
+import { 
+  fetchFullSiteData, 
+  saveFullSiteData, 
+  fetchProfilePhotoUrl,
+  fetchContactMessages,
+  deleteContactMessageFromDb,
+  markContactMessageReadInDb,
+  clearContactMessagesInDb
+} from '../lib/supabase';
 
 interface PortfolioContextType {
   profile: SiteProfile;
@@ -208,6 +216,12 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         if (remote.certificates && Array.isArray(remote.certificates) && remote.certificates.length > 0) {
           setCertificates(remote.certificates);
+        }
+
+        // Fetch cloud contact messages
+        const cloudMessages = await fetchContactMessages();
+        if (cloudMessages && Array.isArray(cloudMessages) && cloudMessages.length > 0) {
+          setMessages(cloudMessages);
         }
       } catch (e) {
         console.warn('Initial cloud sync error:', e);
@@ -421,6 +435,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } catch (e) {}
       return next;
     });
+    deleteContactMessageFromDb(id).catch((e) => console.warn('Supabase delete message err:', e));
   };
 
   const markMessageRead = (id: string) => {
@@ -431,11 +446,13 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } catch (e) {}
       return next;
     });
+    markContactMessageReadInDb(id).catch((e) => console.warn('Supabase mark read err:', e));
   };
 
   const clearMessages = () => {
     setMessages([]);
     localStorage.removeItem(STORAGE_KEYS.MESSAGES);
+    clearContactMessagesInDb().catch((e) => console.warn('Supabase clear messages err:', e));
   };
 
   // Tools CRUD

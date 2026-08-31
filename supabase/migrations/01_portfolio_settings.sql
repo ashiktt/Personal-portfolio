@@ -1,6 +1,7 @@
 -- ==============================================================================
--- Migration: Portfolio Settings & Storage Policies for Persistent Profile Photo & Full Site Data
--- Table: portfolio_settings
+-- Migration: Portfolio Settings, Contact Messages & Storage Policies
+-- Table 1: portfolio_settings
+-- Table 2: contact_messages
 -- Bucket: portfolio-images (Public)
 -- ==============================================================================
 
@@ -20,14 +21,12 @@ INSERT INTO public.portfolio_settings (id, profile_photo_url, updated_at)
 VALUES (1, NULL, now())
 ON CONFLICT (id) DO NOTHING;
 
--- 4. Enable Row Level Security (RLS)
+-- 4. Enable Row Level Security (RLS) on portfolio_settings
 ALTER TABLE public.portfolio_settings ENABLE ROW LEVEL SECURITY;
 
--- 5. Drop old policies if they exist to avoid conflict
 DROP POLICY IF EXISTS "Allow public read access on portfolio_settings" ON public.portfolio_settings;
 DROP POLICY IF EXISTS "Allow insert or update on portfolio_settings" ON public.portfolio_settings;
 
--- 6. Create RLS Policies for portfolio_settings
 CREATE POLICY "Allow public read access on portfolio_settings"
 ON public.portfolio_settings
 FOR SELECT
@@ -42,10 +41,48 @@ USING (true)
 WITH CHECK (true);
 
 -- ==============================================================================
--- 7. Storage Bucket Policies for 'portfolio-images'
+-- 5. Contact Messages Table & Policies
 -- ==============================================================================
 
--- Ensure bucket exists and is public
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  message TEXT NOT NULL,
+  read BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.contact_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public insert into contact_messages" ON public.contact_messages;
+DROP POLICY IF EXISTS "Allow read contact_messages" ON public.contact_messages;
+DROP POLICY IF EXISTS "Allow update/delete on contact_messages" ON public.contact_messages;
+
+CREATE POLICY "Allow public insert into contact_messages"
+ON public.contact_messages
+FOR INSERT
+TO anon, authenticated, public
+WITH CHECK (true);
+
+CREATE POLICY "Allow read contact_messages"
+ON public.contact_messages
+FOR SELECT
+TO anon, authenticated, public
+USING (true);
+
+CREATE POLICY "Allow update/delete on contact_messages"
+ON public.contact_messages
+FOR ALL
+TO anon, authenticated, public
+USING (true)
+WITH CHECK (true);
+
+-- ==============================================================================
+-- 6. Storage Bucket Policies for 'portfolio-images'
+-- ==============================================================================
+
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('portfolio-images', 'portfolio-images', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
