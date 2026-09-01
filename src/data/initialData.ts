@@ -8,7 +8,7 @@ export const INITIAL_PROFILE: SiteProfile = {
   heroIntro: "I'm a Computer Science & Engineering student focused on UI/UX design, interaction design, and mobile product experiences.",
   aboutText: `I'm currently pursuing a B.Tech in Computer Science & Engineering at Gulzar Group of Institutes (2023–2027), while building my skills in UI/UX design, interaction design, and frontend development.
 
-I enjoy turning complex problems into clear, intuitive digital experiences through user flows, wireframing, prototyping, and visual design.`,
+I leverage user research, wireframing, prototyping, and AI-assisted product development to create intuitive, practical digital experiences.`,
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
   email: 'tusarashikur@gmail.com',
   phone: '+91 6280321270',

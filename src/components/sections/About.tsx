@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Layers, Cpu, Compass, GraduationCap, Calendar, MapPin, BookOpen } from 'lucide-react';
+import { Sparkles, Layers, Cpu, Compass, GraduationCap, Calendar, MapPin, BookOpen, Bot } from 'lucide-react';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { SpotlightCard } from '../ui/SpotlightCard';
 
@@ -14,9 +14,9 @@ export const About: React.FC = () => {
       description: 'Understanding real user needs and crafting clear user flows, wireframes, and intuitive interaction models.',
     },
     {
-      icon: <Cpu className="w-5 h-5 text-sky-400" />,
-      title: 'CSE + Design Foundations',
-      description: 'Applying Computer Science fundamentals to create practical, implementable digital interfaces and design assets.',
+      icon: <Bot className="w-5 h-5 text-purple-400" />,
+      title: 'AI-Assisted Product Dev',
+      description: 'Leveraging AI workflows and prompt engineering to accelerate product discovery, generative prototyping, and practical design solutions.',
     },
     {
       icon: <Layers className="w-5 h-5 text-indigo-400" />,
@@ -49,7 +49,7 @@ export const About: React.FC = () => {
           <div className="lg:col-span-7 flex flex-col justify-between p-6 sm:p-8 rounded-3xl bg-[#0E1322]/75 border border-slate-800/80 backdrop-blur-xl shadow-xl space-y-6">
             <div className="space-y-4">
               <p className="text-base sm:text-lg text-slate-200 leading-relaxed whitespace-pre-line">
-                {profile.aboutText || "I'm currently pursuing a B.Tech in Computer Science & Engineering at Gulzar Group of Institutes (2023–2027), while building my skills in UI/UX design, interaction design, and frontend development.\n\nI enjoy turning complex problems into clear, intuitive digital experiences through user flows, wireframing, prototyping, and visual design."}
+                {profile.aboutText || "I'm currently pursuing a B.Tech in Computer Science & Engineering at Gulzar Group of Institutes (2023–2027), while building my skills in UI/UX design, interaction design, and frontend development.\n\nI leverage user research, wireframing, prototyping, and AI-assisted product development to create intuitive, practical digital experiences."}
               </p>
             </div>
             
