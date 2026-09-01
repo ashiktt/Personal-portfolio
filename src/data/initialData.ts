@@ -190,6 +190,16 @@ export const INITIAL_TOOLS: ToolItem[] = [
     order: 2,
   },
   {
+    id: 'tool-ai-workflows',
+    name: 'AI Product & Dev Workflows',
+    category: 'AI-Assisted Development',
+    description: 'Leveraging LLMs, generative UI tools, and prompt engineering to accelerate product ideation, user journey validation, and frontend development.',
+    color: '#8B5CF6',
+    badge: 'AI Innovation',
+    iconType: 'code',
+    order: 3,
+  },
+  {
     id: 'tool-htmlcss',
     name: 'HTML / CSS',
     category: 'Frontend Foundations',
@@ -197,7 +207,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
     color: '#E34F26',
     badge: 'Frontend',
     iconType: 'code',
-    order: 3,
+    order: 4,
   },
   {
     id: 'tool-github',
@@ -207,7 +217,7 @@ export const INITIAL_TOOLS: ToolItem[] = [
     color: '#6e5494',
     badge: 'Engineering',
     iconType: 'github',
-    order: 4,
+    order: 5,
   },
 ];
 
@@ -237,15 +247,27 @@ export const INITIAL_SKILL_GROUPS: SkillGroup[] = [
     order: 2,
   },
   {
-    id: 'group-tools',
-    category: 'TOOLS',
+    id: 'group-ai-product',
+    category: 'AI-ASSISTED PRODUCT DEV',
     items: [
-      'Figma',
-      'FigJam',
-      'HTML/CSS',
-      'GitHub',
+      'AI Workflow Integration',
+      'Prompt Engineering for UX',
+      'Generative UI Prototyping',
+      'AI Market & User Discovery',
+      'Synthetic Persona Testing',
     ],
     order: 3,
+  },
+  {
+    id: 'group-tools',
+    category: 'TOOLS & CODE',
+    items: [
+      'Figma & FigJam',
+      'AI Design Tools',
+      'HTML5 / Modern CSS',
+      'Git & GitHub',
+    ],
+    order: 4,
   },
 ];
 

@@ -58,6 +58,10 @@ export const About: React.FC = () => {
                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                 <span className="text-slate-200 font-medium">UI/UX Design</span>
               </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-purple-500/30 bg-purple-500/5">
+                <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                <span className="text-purple-200 font-medium">AI-Assisted Product Dev</span>
+              </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800">
                 <span className="w-2 h-2 rounded-full bg-sky-500" />
                 <span className="text-slate-200 font-medium">Interaction Design</span>

@@ -145,9 +145,9 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
               <Compass className="w-3.5 h-3.5 text-blue-400" />
               UI / UX Design
             </span>
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/60 border border-slate-800">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              Product Prototyping
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-500/10 border border-purple-500/25 text-purple-300">
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              AI-Assisted Product Dev
             </span>
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/60 border border-slate-800">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
