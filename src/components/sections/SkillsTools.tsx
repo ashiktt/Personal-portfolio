@@ -6,7 +6,7 @@ import { usePortfolio } from '../../context/PortfolioContext';
 import { SpotlightCard } from '../ui/SpotlightCard';
 
 export const SkillsTools: React.FC = () => {
-  const { skillGroups } = usePortfolio();
+  const { skillGroups, tools } = usePortfolio();
 
   // Fallback / standard categories if skillGroups not customized
   const defaultCategories = [
@@ -51,16 +51,30 @@ export const SkillsTools: React.FC = () => {
       category: 'TOOLS & CODE',
       tagline: 'Design & frontend software',
       items: [
-        'Figma & FigJam',
-        'AI Design Tools',
-        'HTML5 / Modern CSS',
-        'Git & GitHub',
+        'Figma',
+        'HTML / CSS',
+        'GitHub',
       ],
     },
   ];
 
-  // Map dynamic skillGroups if available, or use the clean default categories
-  const displayGroups = skillGroups && skillGroups.length > 0 ? skillGroups : defaultCategories;
+  // Map dynamic skillGroups and dynamically inject the live tools list into the TOOLS category
+  const rawGroups = skillGroups && skillGroups.length > 0 ? skillGroups : defaultCategories;
+
+  const displayGroups = rawGroups.map((group) => {
+    const isToolsCategory =
+      group.category.toUpperCase().includes('TOOL') ||
+      group.id.includes('tools') ||
+      group.category.toUpperCase().includes('TECH');
+
+    if (isToolsCategory && tools && tools.length > 0) {
+      return {
+        ...group,
+        items: tools.map((t) => t.name),
+      };
+    }
+    return group;
+  });
 
   const getCategoryIcon = (categoryName: string) => {
     const name = categoryName.toUpperCase();
@@ -120,7 +134,7 @@ export const SkillsTools: React.FC = () => {
 
                 {/* Skills Item List */}
                 <ul className="space-y-2.5 pt-2">
-                  {group.items.map((skill, sIdx) => (
+                  {group.items.map((skill: string, sIdx: number) => (
                     <li
                       key={sIdx}
                       className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800/60 hover:border-blue-500/30 transition-all group"
