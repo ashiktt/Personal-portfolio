@@ -66,6 +66,14 @@
   .border-subtle {
     border-color: rgba(255, 255, 255, 0.08);
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* Atmospheric Glow Gradients */

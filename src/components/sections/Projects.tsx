@@ -1,6 +1,17 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { FolderGit2, ArrowUpRight, Sparkles, Clock, CheckCircle2, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  FolderGit2, 
+  ArrowUpRight, 
+  Sparkles, 
+  Clock, 
+  CheckCircle2, 
+  Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Layers
+} from 'lucide-react';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { Project } from '../../types';
 import { SpotlightCard } from '../ui/SpotlightCard';
@@ -13,15 +24,66 @@ interface ProjectsProps {
 export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
   const { publishedProjects } = usePortfolio();
 
-  // Find the primary featured project or first published project
-  const featuredProject = publishedProjects.find((p) => p.featured) || publishedProjects[0];
-  const otherProjects = publishedProjects.filter((p) => p.id !== featuredProject?.id);
+  // Exactly ONE featured project (where featured === true)
+  const featuredProject = publishedProjects.find((p) => p.featured === true);
+
+  // All published projects where featured === false
+  const otherProjects = publishedProjects.filter((p) => !p.featured);
+
+  // Category filtering state for Other Projects carousel
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+  // Extract unique categories from otherProjects
+  const categories = ['All', ...Array.from(new Set(otherProjects.map((p) => p.category).filter(Boolean)))];
+
+  // Filtered Other Projects
+  const filteredProjects = selectedCategory === 'All'
+    ? otherProjects
+    : otherProjects.filter((p) => p.category.toLowerCase() === selectedCategory.toLowerCase());
+
+  // Carousel ref & scroll state
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  // Check scroll position to update arrow disabled states
+  const updateScrollState = () => {
+    if (!carouselRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
+    // Buffer of 6px for subpixel rounding
+    setCanScrollLeft(scrollLeft > 6);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 6);
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    const el = carouselRef.current;
+    if (el) {
+      el.addEventListener('scroll', updateScrollState, { passive: true });
+      window.addEventListener('resize', updateScrollState);
+    }
+    return () => {
+      if (el) el.removeEventListener('scroll', updateScrollState);
+      window.removeEventListener('resize', updateScrollState);
+    };
+  }, [filteredProjects]);
+
+  // Scroll navigation handlers
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (!carouselRef.current) return;
+    const container = carouselRef.current;
+    // Scroll by approximately one visible viewport step or card width
+    const scrollAmount = container.clientWidth * 0.85;
+    container.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
+    });
+  };
 
   // Helper to extract dynamic highlight items from project's content sections
   const getProjectHighlights = (project: Project): string[] => {
     const highlights: string[] = [];
 
-    // Look for bullet-list items or process/feature titles
     for (const section of project.contentSections || []) {
       if (section.items && Array.isArray(section.items)) {
         for (const item of section.items) {
@@ -36,7 +98,6 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
       if (highlights.length >= 4) break;
     }
 
-    // Fallback to tools or section titles if items are sparse
     if (highlights.length < 2 && project.contentSections) {
       project.contentSections.slice(0, 4).forEach((s) => {
         if (s.title && !highlights.includes(s.title)) highlights.push(s.title);
@@ -49,8 +110,8 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
   const featuredHighlights = featuredProject ? getProjectHighlights(featuredProject) : [];
 
   return (
-    <section id="projects" className="relative py-24 px-4 sm:px-6 lg:px-8 z-10">
-      <div className="max-w-7xl mx-auto space-y-12">
+    <section id="projects" className="relative py-24 px-4 sm:px-6 lg:px-8 z-10 overflow-hidden">
+      <div className="max-w-7xl mx-auto space-y-16">
         
         {/* Section Header */}
         <div className="flex flex-col items-start space-y-2">
@@ -59,14 +120,16 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
             <span>SELECTED WORK &amp; CASE STUDIES</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight">
-            Featured Projects
+            Featured &amp; Other Projects
           </h2>
           <p className="text-sm sm:text-base text-slate-400 max-w-xl">
             A showcase of digital products, user experience case studies, AI workflows, and software solutions.
           </p>
         </div>
 
-        {/* 1. Large Hero-Grade Featured Project Showcase */}
+        {/* ========================================================= */}
+        {/* 1. LARGE HERO-GRADE FEATURED PROJECT SHOWCASE (Only if featured === true) */}
+        {/* ========================================================= */}
         {featuredProject && (
           <SpotlightCard
             onClick={() => onSelectProject(featuredProject)}
@@ -151,7 +214,7 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
                     type="button"
                     className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white font-semibold text-sm shadow-xl shadow-blue-500/30 group-hover:shadow-blue-500/50 group-hover:scale-[1.02] transition-all border border-blue-400/40"
                   >
-                    <span>View Project</span>
+                    <span>View Case Study</span>
                     <ArrowUpRight className="w-4 h-4 text-blue-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                   </button>
                 </div>
@@ -176,7 +239,6 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
                       <span className="text-xs text-slate-500 font-mono">{featuredProject.category}</span>
                     </div>
                   )}
-                  {/* Subtle Gradient Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
                 </div>
               </div>
@@ -185,61 +247,189 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
           </SpotlightCard>
         )}
 
-        {/* 2. Additional Future Real Projects Grid */}
+        {/* ========================================================= */}
+        {/* 2. OTHER PROJECTS — HORIZONTAL SCROLLABLE CAROUSEL */}
+        {/* ========================================================= */}
         {otherProjects.length > 0 && (
-          <div className="space-y-6 pt-8">
-            <h4 className="text-xl font-bold text-white tracking-tight">
-              Other Projects
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {otherProjects.map((project) => (
-                <SpotlightCard
-                  key={project.id}
-                  onClick={() => onSelectProject(project)}
-                  className="p-6 rounded-2xl bg-[#0E1322]/80 border border-slate-800 flex flex-col justify-between h-full group cursor-pointer space-y-4"
-                >
-                  <div className="space-y-3">
-                    <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center">
-                      {project.thumbnail ? (
-                        <img
-                          src={project.thumbnail}
-                          alt={project.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-slate-500 space-y-1">
-                          <ImageIcon className="w-6 h-6" />
-                          <span className="text-[11px] font-mono">{project.category}</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/20 font-mono">
-                        {project.category}
-                      </span>
-                      {project.status && (
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          {project.status}
-                        </span>
-                      )}
-                    </div>
+          <div className="space-y-6 pt-4">
+            
+            {/* Header with Title, Category Filters, and Carousel Arrows */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-2xl font-bold text-white tracking-tight">
+                    Other Projects
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-xs font-mono text-slate-400">
+                    {filteredProjects.length} {filteredProjects.length === 1 ? 'Project' : 'Projects'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Explore additional digital interfaces, design systems, and software solutions.
+                </p>
+              </div>
 
-                    <h5 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">
-                      {project.title}
-                    </h5>
-                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                      {project.shortDescription}
-                    </p>
+              {/* Controls: Category Filter Chips & Navigation Arrows */}
+              <div className="flex flex-wrap items-center gap-3">
+                
+                {/* Category Filter Pills (if multiple categories exist) */}
+                {categories.length > 2 && (
+                  <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-slate-900/90 border border-slate-800">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                          selectedCategory === cat
+                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
                   </div>
+                )}
 
-                  <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-blue-400 font-medium">
-                    <span>View Project</span>
-                    <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </div>
-                </SpotlightCard>
-              ))}
+                {/* Carousel Previous / Next Arrow Controls */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleScroll('left')}
+                    disabled={!canScrollLeft}
+                    className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-md active:scale-95"
+                    aria-label="Previous projects"
+                    title="Previous projects"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleScroll('right')}
+                    disabled={!canScrollRight}
+                    className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 hover:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-md active:scale-95"
+                    aria-label="Next projects"
+                    title="Next projects"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+              </div>
             </div>
+
+            {/* Carousel Track */}
+            {filteredProjects.length > 0 ? (
+              <div className="relative">
+                <div
+                  ref={carouselRef}
+                  className="flex gap-6 overflow-x-auto snap-x snap-mandatory no-scrollbar py-4 px-1 -mx-1 scroll-smooth"
+                  tabIndex={0}
+                  aria-label="Other projects carousel"
+                >
+                  {filteredProjects.map((project) => (
+                    <div
+                      key={project.id}
+                      className="w-[82vw] sm:w-[320px] md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] min-w-[280px] max-w-[400px] shrink-0 snap-start flex flex-col"
+                    >
+                      <SpotlightCard
+                        onClick={() => onSelectProject(project)}
+                        className="p-5 sm:p-6 rounded-3xl bg-[#0E1322]/85 border border-slate-800/90 hover:border-blue-500/40 flex flex-col justify-between h-full group cursor-pointer space-y-4 transition-all duration-300"
+                      >
+                        <div className="space-y-3.5">
+                          {/* Card Thumbnail */}
+                          <div className="aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/80 flex items-center justify-center relative">
+                            {project.thumbnail ? (
+                              <img
+                                src={project.thumbnail}
+                                alt={project.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-slate-500 space-y-1.5 p-4 text-center">
+                                <ImageIcon className="w-8 h-8 text-slate-600" />
+                                <span className="text-[11px] font-mono text-slate-400">{project.category}</span>
+                              </div>
+                            )}
+
+                            {/* Category Badge on Image */}
+                            <div className="absolute top-2.5 left-2.5">
+                              <span className="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-blue-300 border border-blue-500/30 text-[10px] font-mono font-semibold">
+                                {project.category}
+                              </span>
+                            </div>
+
+                            {/* Status Badge */}
+                            {project.status && (
+                              <div className="absolute top-2.5 right-2.5">
+                                <span className="px-2 py-0.5 rounded-lg bg-black/70 backdrop-blur-md text-slate-300 border border-slate-700 text-[10px] font-mono">
+                                  {project.status}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Title & Subtitle */}
+                          <div className="space-y-1">
+                            <h4 className="text-base sm:text-lg font-bold text-white group-hover:text-blue-400 transition-colors tracking-tight line-clamp-1">
+                              {project.title}
+                            </h4>
+                            {project.subtitle && (
+                              <p className="text-[11px] font-mono text-slate-400 truncate">
+                                {project.subtitle}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Short Description */}
+                          <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                            {project.shortDescription}
+                          </p>
+
+                          {/* Tools Chips */}
+                          {project.tools && project.tools.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {project.tools.slice(0, 3).map((tool) => (
+                                <span
+                                  key={tool}
+                                  className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-slate-900 text-slate-300 border border-slate-800"
+                                >
+                                  {tool}
+                                </span>
+                              ))}
+                              {project.tools.length > 3 && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-mono text-slate-500">
+                                  +{project.tools.length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Card Bottom CTA */}
+                        <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-blue-400 font-semibold group-hover:text-blue-300 transition-colors">
+                          <span>View Project</span>
+                          <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 text-blue-400 transition-colors">
+                            <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                          </div>
+                        </div>
+                      </SpotlightCard>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-12 text-center rounded-3xl bg-slate-900/40 border border-slate-800/80 space-y-2">
+                <Filter className="w-8 h-8 text-slate-500 mx-auto" />
+                <h4 className="text-sm font-semibold text-white">No projects in this category yet</h4>
+                <p className="text-xs text-slate-400">
+                  Try selecting &ldquo;All&rdquo; to view all available projects.
+                </p>
+              </div>
+            )}
+
           </div>
         )}
 
