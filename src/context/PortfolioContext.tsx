@@ -7,6 +7,7 @@ import {
   INITIAL_TOOLS, 
   INITIAL_SKILL_GROUPS 
 } from '../data/initialData';
+import { migrateProjectToDynamicSections } from '../lib/projectMigration';
 import { 
   fetchFullSiteData, 
   saveFullSiteData, 
@@ -86,7 +87,13 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PROJECTS);
-      return saved ? JSON.parse(saved) : INITIAL_PROJECTS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(migrateProjectToDynamicSections);
+        }
+      }
+      return INITIAL_PROJECTS;
     } catch {
       return INITIAL_PROJECTS;
     }
@@ -176,7 +183,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setProfile((prev) => ({ ...prev, ...remote.profile }));
         }
         if (remote.projects && Array.isArray(remote.projects) && remote.projects.length > 0) {
-          setProjects(remote.projects);
+          setProjects(remote.projects.map(migrateProjectToDynamicSections));
         }
         if (remote.tools && Array.isArray(remote.tools) && remote.tools.length > 0) {
           setTools(remote.tools);
@@ -206,7 +213,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setProfile((prev) => ({ ...prev, ...remote.profile }));
         }
         if (remote.projects && Array.isArray(remote.projects) && remote.projects.length > 0) {
-          setProjects(remote.projects);
+          setProjects(remote.projects.map(migrateProjectToDynamicSections));
         }
         if (remote.tools && Array.isArray(remote.tools) && remote.tools.length > 0) {
           setTools(remote.tools);

@@ -1,50 +1,89 @@
+export type ProjectSectionType =
+  | 'text'
+  | 'rich-text'
+  | 'image'
+  | 'gallery'
+  | 'video'
+  | 'bullet-list'
+  | 'numbered-list'
+  | 'quote'
+  | 'statistics'
+  | 'timeline'
+  | 'process'
+  | 'user-flow'
+  | 'feature-list'
+  | 'comparison'
+  | 'code'
+  | 'prototype'
+  | 'link';
+
+export interface ProjectSectionItem {
+  id?: string;
+  title?: string;
+  desc?: string;
+  value?: string;
+  label?: string;
+  status?: 'Completed' | 'In Progress' | 'Planned' | string;
+  icon?: string;
+  image?: string;
+}
+
+export interface ProjectSectionImage {
+  url: string;
+  caption?: string;
+  alt?: string;
+}
+
+export interface ProjectSection {
+  id: string;
+  title: string;
+  subtitle?: string;
+  type: ProjectSectionType;
+  content?: string;
+  items?: (string | ProjectSectionItem)[];
+  images?: (string | ProjectSectionImage)[];
+  embedUrl?: string;
+  codeLanguage?: string;
+  order: number;
+  visible: boolean;
+}
+
+export interface ProjectLinks {
+  liveDemo?: string;
+  prototype?: string;
+  github?: string;
+  figma?: string;
+  behance?: string;
+  documentation?: string;
+  customLinks?: { label: string; url: string }[];
+}
+
 export interface Project {
   id: string;
   title: string;
   subtitle?: string;
   category: string;
+  projectType?: string;
   shortDescription: string;
+  longDescription?: string;
   thumbnail: string;
+  heroImage?: string;
+  gallery?: string[];
+  status?: 'Idea' | 'Planning' | 'In Progress' | 'Completed' | 'Archived' | string;
+  statusBadge?: string;
+  date?: string;
+  duration?: string;
+  role?: string;
+  team?: string;
   tools: string[];
+  tags?: string[];
   order: number;
   isPublished: boolean;
   featured?: boolean;
-  statusBadge?: string;
-  caseStudy?: {
-    overview: string;
-    problem: string;
-    goal?: string;
-    targetAudience?: string;
-    targetUsers?: string;
-    solution: string;
-    projectStatus?: {
-      stage: string;
-      status: 'Completed' | 'In Progress' | 'Planned';
-    }[];
-    userFlow?: string[];
-    wireframes?: {
-      title: string;
-      desc: string;
-      image?: string;
-    }[];
-    designDecisions?: {
-      title: string;
-      desc: string;
-    }[];
-    highFidelityUI?: {
-      title: string;
-      desc: string;
-      image?: string;
-    }[];
-    keyFeatures?: string[];
-    processSteps?: { title: string; desc: string }[];
-    learnings?: string[];
-    galleryImages?: string[];
-    figmaUrl?: string;
-    liveUrl?: string;
-    githubUrl?: string;
-  };
+  links: ProjectLinks;
+  contentSections: ProjectSection[];
   createdAt: string;
+  caseStudy?: any;
 }
 
 export interface Certificate {
