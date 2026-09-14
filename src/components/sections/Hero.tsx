@@ -6,7 +6,7 @@ import { usePortfolio } from '../../context/PortfolioContext';
 import { DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
 
 import { StreamingText } from '../ui/StreamingText';
-import { ScrambleText } from '../ui/ScrambleText';
+import { RotatingText } from '../ui/RotatingText';
 
 interface HeroProps {
   onResumeClick: () => void;
@@ -88,22 +88,35 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
               {profile.name}
             </h1>
             <div className="flex items-center gap-3">
-              <span className="text-lg sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
-                <ScrambleText
-                  text={profile.role || "UI/UX Designer & Product Thinker"}
-                  speed={28}
-                  cyclesPerChar={2}
-                  delay={150}
-                  triggerOnHover={true}
-                  scrambleClassName="text-cyan-400 font-mono"
+              <span className="text-lg sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent min-h-[2.2rem] sm:min-h-[2.6rem] flex items-center">
+                <RotatingText
+                  words={[
+                    profile.role || 'UI/UX Designer • CSE Student',
+                    'Product Designer • AI Explorer',
+                    'Design Systems • Interaction Designer',
+                    'UI/UX Designer • Problem Solver',
+                  ]}
+                  interval={3200}
                 />
               </span>
             </div>
           </div>
 
-          {/* Hero Headline with Soft Cross-Blur Streaming Text */}
-          <div className="text-base sm:text-xl lg:text-2xl font-medium text-slate-200 leading-snug max-w-2xl min-h-[3.5rem]">
-            &ldquo;<StreamingText text={profile.heroHeadline || "Designing intuitive digital experiences that make complex user journeys simpler."} gap={55} fade={350} blur={4} />&rdquo;
+          {/* Hero Headline with 3D Morphing Slot Flip */}
+          <div className="text-base sm:text-xl lg:text-2xl font-medium text-slate-200 leading-snug max-w-2xl min-h-[3.5rem] flex items-center flex-wrap">
+            {profile.heroHeadline && !profile.heroHeadline.includes('intuitive') ? (
+              <span>&ldquo;<StreamingText text={profile.heroHeadline} gap={55} fade={350} blur={4} />&rdquo;</span>
+            ) : (
+              <span>
+                &ldquo;Designing{' '}
+                <RotatingText
+                  words={['intuitive', 'practical', 'AI-assisted', 'seamless', 'scalable']}
+                  interval={2800}
+                  className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300 font-bold px-1"
+                />{' '}
+                digital experiences that make complex user journeys simpler.&rdquo;
+              </span>
+            )}
           </div>
 
           {/* Hero Short Intro with Soft Cross-Blur Streaming Text */}
@@ -241,14 +254,7 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     </div>
                     <div className="text-[11px] text-blue-400 group-hover:text-blue-300 font-mono transition-colors">
-                      <ScrambleText
-                        text={profile.role || "UI/UX Designer"}
-                        speed={24}
-                        cyclesPerChar={2}
-                        delay={400}
-                        triggerOnHover={true}
-                        scrambleClassName="text-cyan-300 font-mono"
-                      />
+                      {profile.role}
                     </div>
                   </div>
 
