@@ -6,6 +6,7 @@ import { usePortfolio } from '../../context/PortfolioContext';
 import { DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
 
 import { StreamingText } from '../ui/StreamingText';
+import { ScrambleText } from '../ui/ScrambleText';
 
 interface HeroProps {
   onResumeClick: () => void;
@@ -88,7 +89,14 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
             </h1>
             <div className="flex items-center gap-3">
               <span className="text-lg sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300 bg-clip-text text-transparent">
-                {profile.role}
+                <ScrambleText
+                  text={profile.role || "UI/UX Designer & Product Thinker"}
+                  speed={28}
+                  cyclesPerChar={2}
+                  delay={150}
+                  triggerOnHover={true}
+                  scrambleClassName="text-cyan-400 font-mono"
+                />
               </span>
             </div>
           </div>
@@ -233,7 +241,14 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     </div>
                     <div className="text-[11px] text-blue-400 group-hover:text-blue-300 font-mono transition-colors">
-                      {profile.role}
+                      <ScrambleText
+                        text={profile.role || "UI/UX Designer"}
+                        speed={24}
+                        cyclesPerChar={2}
+                        delay={400}
+                        triggerOnHover={true}
+                        scrambleClassName="text-cyan-300 font-mono"
+                      />
                     </div>
                   </div>
 
