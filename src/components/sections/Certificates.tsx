@@ -13,6 +13,7 @@ import {
 import { usePortfolio } from '../../context/PortfolioContext';
 import { Certificate } from '../../types';
 import { SpotlightCard } from '../ui/SpotlightCard';
+import { TiltCard } from '../ui/TiltCard';
 
 interface CertificatesProps {
   onSelectCertificate: (cert: Certificate) => void;
@@ -127,86 +128,88 @@ export const Certificates: React.FC<CertificatesProps> = ({ onSelectCertificate 
                   key={cert.id}
                   className="w-[82vw] sm:w-[320px] md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] min-w-[280px] max-w-[400px] shrink-0 snap-start flex flex-col"
                 >
-                  <SpotlightCard
-                    onClick={() => onSelectCertificate(cert)}
-                    className="p-5 sm:p-6 rounded-3xl bg-[#0E1322]/85 border border-slate-800/90 hover:border-blue-500/40 flex flex-col justify-between h-full group cursor-pointer space-y-4 transition-all duration-300 shadow-xl shadow-black/40 hover:shadow-blue-500/10"
-                  >
-                    <div className="space-y-3.5">
-                      {/* Certificate Image Preview */}
-                      <div className="aspect-[16/10] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/80 flex items-center justify-center relative">
-                        {cert.image ? (
-                          <img
-                            src={cert.image}
-                            alt={cert.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center text-slate-500 space-y-1.5 p-4 text-center">
-                            <ImageIcon className="w-8 h-8 text-slate-600" />
-                            <span className="text-[11px] font-mono text-slate-400">{cert.issuer}</span>
+                  <TiltCard max={12} className="h-full">
+                    <SpotlightCard
+                      onClick={() => onSelectCertificate(cert)}
+                      className="p-5 sm:p-6 rounded-3xl bg-[#0E1322]/85 border border-slate-800/90 hover:border-blue-500/40 flex flex-col justify-between h-full group cursor-pointer space-y-4 transition-all duration-300 shadow-xl shadow-black/40 hover:shadow-blue-500/10"
+                    >
+                      <div className="space-y-3.5">
+                        {/* Certificate Image Preview */}
+                        <div className="aspect-[16/10] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/80 flex items-center justify-center relative">
+                          {cert.image ? (
+                            <img
+                              src={cert.image}
+                              alt={cert.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-slate-500 space-y-1.5 p-4 text-center">
+                              <ImageIcon className="w-8 h-8 text-slate-600" />
+                              <span className="text-[11px] font-mono text-slate-400">{cert.issuer}</span>
+                            </div>
+                          )}
+
+                          {/* Issuer Badge */}
+                          <div className="absolute top-2.5 left-2.5">
+                            <span className="px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md text-blue-300 border border-blue-500/30 text-[10px] font-mono font-semibold">
+                              {cert.issuer}
+                            </span>
+                          </div>
+
+                          {/* Verified Badge */}
+                          <div className="absolute top-2.5 right-2.5">
+                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md border border-emerald-500/30 text-[10px] font-mono font-medium text-emerald-300 shadow-sm">
+                              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                              Verified
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Title */}
+                        <div className="space-y-1">
+                          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-blue-400 transition-colors tracking-tight line-clamp-2">
+                            {cert.title}
+                          </h3>
+                        </div>
+
+                        {/* Issue Date */}
+                        {cert.issueDate && (
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Issued {cert.issueDate}</span>
                           </div>
                         )}
 
-                        {/* Issuer Badge */}
-                        <div className="absolute top-2.5 left-2.5">
-                          <span className="px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md text-blue-300 border border-blue-500/30 text-[10px] font-mono font-semibold">
-                            {cert.issuer}
-                          </span>
-                        </div>
-
-                        {/* Verified Badge */}
-                        <div className="absolute top-2.5 right-2.5">
-                          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md border border-emerald-500/30 text-[10px] font-mono font-medium text-emerald-300 shadow-sm">
-                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                            Verified
-                          </span>
-                        </div>
+                        {/* Skills Validated Chips */}
+                        {cert.skills && cert.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {cert.skills.slice(0, 3).map((skill) => (
+                              <span
+                                key={skill}
+                                className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-slate-900 text-slate-300 border border-slate-800"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                            {cert.skills.length > 3 && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-mono text-slate-500">
+                                +{cert.skills.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Title */}
-                      <div className="space-y-1">
-                        <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-blue-400 transition-colors tracking-tight line-clamp-2">
-                          {cert.title}
-                        </h3>
-                      </div>
-
-                      {/* Issue Date */}
-                      {cert.issueDate && (
-                        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
-                          <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Issued {cert.issueDate}</span>
+                      {/* Card Bottom CTA */}
+                      <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-blue-400 font-semibold group-hover:text-blue-300 transition-colors">
+                        <span>{cert.credentialUrl ? 'View Credential' : 'View Certificate'}</span>
+                        <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 text-blue-400 transition-colors">
+                          <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                         </div>
-                      )}
-
-                      {/* Skills Validated Chips */}
-                      {cert.skills && cert.skills.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {cert.skills.slice(0, 3).map((skill) => (
-                            <span
-                              key={skill}
-                              className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-slate-900 text-slate-300 border border-slate-800"
-                            >
-                              {skill}
-                            </span>
-                          ))}
-                          {cert.skills.length > 3 && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-mono text-slate-500">
-                              +{cert.skills.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Card Bottom CTA */}
-                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-blue-400 font-semibold group-hover:text-blue-300 transition-colors">
-                      <span>{cert.credentialUrl ? 'View Credential' : 'View Certificate'}</span>
-                      <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 text-blue-400 transition-colors">
-                        <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                       </div>
-                    </div>
-                  </SpotlightCard>
+                    </SpotlightCard>
+                  </TiltCard>
                 </div>
               ))}
             </div>

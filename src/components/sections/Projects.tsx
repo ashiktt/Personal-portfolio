@@ -14,6 +14,7 @@ import {
 import { usePortfolio } from '../../context/PortfolioContext';
 import { Project } from '../../types';
 import { SpotlightCard } from '../ui/SpotlightCard';
+import { TiltCard } from '../ui/TiltCard';
 
 interface ProjectsProps {
   onSelectProject: (project: Project) => void;
@@ -162,97 +163,99 @@ export const Projects: React.FC<ProjectsProps> = ({ onSelectProject }) => {
                   key={project.id}
                   className="w-[82vw] sm:w-[320px] md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] min-w-[280px] max-w-[400px] shrink-0 snap-start flex flex-col"
                 >
-                  <SpotlightCard
-                    onClick={() => onSelectProject(project)}
-                    className="p-5 sm:p-6 rounded-3xl bg-[#0E1322]/85 border border-slate-800/90 hover:border-blue-500/40 flex flex-col justify-between h-full group cursor-pointer space-y-4 transition-all duration-300 shadow-xl shadow-black/40 hover:shadow-blue-500/10"
-                  >
-                    <div className="space-y-3.5">
-                      {/* Card Thumbnail */}
-                      <div className="aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/80 flex items-center justify-center relative">
-                        {project.thumbnail ? (
-                          <img
-                            src={project.thumbnail}
-                            alt={project.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center text-slate-500 space-y-1.5 p-4 text-center">
-                            <ImageIcon className="w-8 h-8 text-slate-600" />
-                            <span className="text-[11px] font-mono text-slate-400">{project.category}</span>
-                          </div>
-                        )}
+                  <TiltCard max={12} className="h-full">
+                    <SpotlightCard
+                      onClick={() => onSelectProject(project)}
+                      className="p-5 sm:p-6 rounded-3xl bg-[#0E1322]/85 border border-slate-800/90 hover:border-blue-500/40 flex flex-col justify-between h-full group cursor-pointer space-y-4 transition-all duration-300 shadow-xl shadow-black/40 hover:shadow-blue-500/10"
+                    >
+                      <div className="space-y-3.5">
+                        {/* Card Thumbnail */}
+                        <div className="aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800/80 flex items-center justify-center relative">
+                          {project.thumbnail ? (
+                            <img
+                              src={project.thumbnail}
+                              alt={project.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-slate-500 space-y-1.5 p-4 text-center">
+                              <ImageIcon className="w-8 h-8 text-slate-600" />
+                              <span className="text-[11px] font-mono text-slate-400">{project.category}</span>
+                            </div>
+                          )}
 
-                        {/* Category Badge */}
-                        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                          <span className="px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md text-blue-300 border border-blue-500/30 text-[10px] font-mono font-semibold">
-                            {project.category}
-                          </span>
-
-                          {project.featured && (
-                            <span className="px-2 py-1 rounded-lg bg-blue-600/90 backdrop-blur-md text-white text-[10px] font-mono font-bold flex items-center gap-1 shadow-sm">
-                              <Sparkles className="w-2.5 h-2.5" />
-                              Featured
+                          {/* Category Badge */}
+                          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                            <span className="px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md text-blue-300 border border-blue-500/30 text-[10px] font-mono font-semibold">
+                              {project.category}
                             </span>
+
+                            {project.featured && (
+                              <span className="px-2 py-1 rounded-lg bg-blue-600/90 backdrop-blur-md text-white text-[10px] font-mono font-bold flex items-center gap-1 shadow-sm">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                Featured
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Status Badge */}
+                          {(project.statusBadge || project.status) && (
+                            <div className="absolute top-2.5 right-2.5">
+                              <span className="px-2 py-0.5 rounded-lg bg-black/75 backdrop-blur-md text-slate-300 border border-slate-700 text-[10px] font-mono">
+                                {project.statusBadge || project.status}
+                              </span>
+                            </div>
                           )}
                         </div>
 
-                        {/* Status Badge */}
-                        {(project.statusBadge || project.status) && (
-                          <div className="absolute top-2.5 right-2.5">
-                            <span className="px-2 py-0.5 rounded-lg bg-black/75 backdrop-blur-md text-slate-300 border border-slate-700 text-[10px] font-mono">
-                              {project.statusBadge || project.status}
-                            </span>
+                        {/* Title & Subtitle */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-blue-400 transition-colors tracking-tight line-clamp-1">
+                              {project.title}
+                            </h3>
+                          </div>
+                          {project.subtitle && (
+                            <p className="text-[11px] font-mono text-slate-400 truncate">
+                              {project.subtitle}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Short Description */}
+                        <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                          {project.shortDescription}
+                        </p>
+
+                        {/* Tools & Tags Chips */}
+                        {project.tools && project.tools.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {project.tools.slice(0, 3).map((tool) => (
+                              <span
+                                key={tool}
+                                className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-slate-900 text-slate-300 border border-slate-800"
+                              >
+                                {tool}
+                              </span>
+                            ))}
+                            {project.tools.length > 3 && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-mono text-slate-500">
+                                +{project.tools.length - 3}
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
 
-                      {/* Title & Subtitle */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-blue-400 transition-colors tracking-tight line-clamp-1">
-                            {project.title}
-                          </h3>
+                      {/* Card Bottom CTA */}
+                      <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-blue-400 font-semibold group-hover:text-blue-300 transition-colors">
+                        <span>View Project</span>
+                        <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 text-blue-400 transition-colors">
+                          <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                         </div>
-                        {project.subtitle && (
-                          <p className="text-[11px] font-mono text-slate-400 truncate">
-                            {project.subtitle}
-                          </p>
-                        )}
                       </div>
-
-                      {/* Short Description */}
-                      <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                        {project.shortDescription}
-                      </p>
-
-                      {/* Tools & Tags Chips */}
-                      {project.tools && project.tools.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {project.tools.slice(0, 3).map((tool) => (
-                            <span
-                              key={tool}
-                              className="px-2 py-0.5 text-[10px] font-medium rounded-md bg-slate-900 text-slate-300 border border-slate-800"
-                            >
-                              {tool}
-                            </span>
-                          ))}
-                          {project.tools.length > 3 && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-mono text-slate-500">
-                              +{project.tools.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Card Bottom CTA */}
-                    <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-blue-400 font-semibold group-hover:text-blue-300 transition-colors">
-                      <span>View Project</span>
-                      <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 text-blue-400 transition-colors">
-                        <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                      </div>
-                    </div>
-                  </SpotlightCard>
+                    </SpotlightCard>
+                  </TiltCard>
                 </div>
               ))}
             </div>

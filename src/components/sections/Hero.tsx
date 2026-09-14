@@ -5,6 +5,8 @@ import { IconLinkedin, IconGithub } from '../ui/BrandIcons';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
 
+import { StreamingText } from '../ui/StreamingText';
+
 interface HeroProps {
   onResumeClick: () => void;
 }
@@ -91,15 +93,15 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
             </div>
           </div>
 
-          {/* Hero Headline */}
-          <p className="text-base sm:text-xl lg:text-2xl font-medium text-slate-200 leading-snug max-w-2xl">
-            &ldquo;{profile.heroHeadline}&rdquo;
-          </p>
+          {/* Hero Headline with Soft Cross-Blur Streaming Text */}
+          <div className="text-base sm:text-xl lg:text-2xl font-medium text-slate-200 leading-snug max-w-2xl min-h-[3.5rem]">
+            &ldquo;<StreamingText text={profile.heroHeadline || "Designing intuitive digital experiences that make complex user journeys simpler."} gap={55} fade={350} blur={4} />&rdquo;
+          </div>
 
-          {/* Hero Short Intro */}
-          <p className="text-xs sm:text-base text-slate-400 leading-relaxed max-w-xl">
-            {profile.heroIntro}
-          </p>
+          {/* Hero Short Intro with Soft Cross-Blur Streaming Text */}
+          <div className="text-xs sm:text-base text-slate-400 leading-relaxed max-w-xl min-h-[2.5rem]">
+            <StreamingText text={profile.heroIntro || "I'm a Computer Science & Engineering student focused on UI/UX design, interaction design, and mobile product experiences."} delay={450} gap={40} fade={300} blur={3} />
+          </div>
 
           {/* Action Buttons: Resume + LinkedIn & GitHub */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 w-full sm:w-auto">
