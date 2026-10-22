@@ -4,6 +4,7 @@ import { FileText, Sparkles, ArrowUpRight, Compass, ShieldCheck } from 'lucide-r
 import { IconLinkedin, IconGithub } from '../ui/BrandIcons';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
+import user from '../../assets/ashik 2.png'
 
 import { StreamingText } from '../ui/StreamingText';
 import { RotatingText } from '../ui/RotatingText';
@@ -238,7 +239,7 @@ export const Hero: React.FC<HeroProps> = ({ onResumeClick }) => {
                 
                 {/* Photo Image */}
                 <img
-                  src={profile.avatarUrl || DEFAULT_FALLBACK_AVATAR}
+                  src={user}
                   alt={profile.name}
                   className="w-full h-full object-cover object-top filter contrast-[1.05] brightness-95 group-hover:contrast-[1.08] group-hover:brightness-100 group-hover:scale-105 transition-all duration-700 ease-out"
                 />
