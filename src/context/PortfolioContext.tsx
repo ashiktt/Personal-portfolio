@@ -15,7 +15,12 @@ import {
   fetchContactMessages,
   deleteContactMessageFromDb,
   markContactMessageReadInDb,
-  clearContactMessagesInDb
+  clearContactMessagesInDb,
+  isSupabaseConfigured,
+  testSupabaseConnection,
+  saveCustomSupabaseConfig,
+  clearCustomSupabaseConfig,
+  getSupabaseConfig
 } from '../lib/supabase';
 
 interface PortfolioContextType {
@@ -28,6 +33,8 @@ interface PortfolioContextType {
   publishedProjects: Project[];
   isAdminAuthenticated: boolean;
   lockoutRemainingSeconds: number;
+  cloudSyncStatus: 'connected' | 'disconnected' | 'error' | 'syncing';
+  cloudSyncError: string | null;
   refreshProfilePhoto: () => Promise<void>;
   updateProfile: (updated: Partial<SiteProfile>) => void;
   addProject: (project: Omit<Project, 'id' | 'createdAt'>) => Project;
@@ -56,6 +63,11 @@ interface PortfolioContextType {
   resetToDefaults: () => void;
   exportData: () => string;
   importData: (jsonString: string) => { success: boolean; message: string };
+  testCloudConnection: (url?: string, key?: string) => Promise<{ success: boolean; message: string }>;
+  saveCloudConfig: (url: string, key: string) => Promise<{ success: boolean; message: string }>;
+  clearCloudConfig: () => void;
+  syncToLocalDisk: () => Promise<{ success: boolean; message: string }>;
+  generateInitialDataTsCode: () => string;
 }
 
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
@@ -172,6 +184,106 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => clearInterval(interval);
   }, []);
 
+  // Cloud Sync State
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'connected' | 'disconnected' | 'error' | 'syncing'>(() => {
+    return isSupabaseConfigured() ? 'syncing' : 'disconnected';
+  });
+  const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
+
+  // Generate complete TypeScript code representation of initialData.ts
+  const generateInitialDataTsCode = (): string => {
+    const safeProfile = { ...profile };
+    // Remove sensitive/internal fields from public code export
+    delete (safeProfile as any).adminSecretHint;
+
+    return `import { SiteProfile, Project, Certificate, ToolItem, SkillGroup } from '../types';
+
+export const INITIAL_PROFILE: SiteProfile = ${JSON.stringify(safeProfile, null, 2)};
+
+export const INITIAL_PROJECTS: Project[] = ${JSON.stringify(projects, null, 2)};
+
+export const INITIAL_CERTIFICATES: Certificate[] = ${JSON.stringify(certificates, null, 2)};
+
+export const INITIAL_TOOLS: ToolItem[] = ${JSON.stringify(tools, null, 2)};
+
+export const INITIAL_SKILL_GROUPS: SkillGroup[] = ${JSON.stringify(skillGroups, null, 2)};
+
+export const TOOLS_LIST = INITIAL_TOOLS;
+export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
+`;
+  };
+
+  // Sync to local file disk via Vite dev middleware (when running npm run dev)
+  const syncToLocalDisk = async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      const safeProfile = { ...profile };
+      delete (safeProfile as any).adminSecretHint;
+
+      const res = await fetch('/api/save-initial-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile: safeProfile,
+          projects,
+          tools,
+          skillGroups,
+          certificates,
+        }),
+      });
+
+      if (!res.ok) {
+        return {
+          success: false,
+          message: 'Local server API not available in production builds. Use Supabase cloud sync or download initialData.ts.',
+        };
+      }
+
+      const data = await res.json();
+      return {
+        success: data.success,
+        message: data.message || 'Saved to src/data/initialData.ts',
+      };
+    } catch {
+      return {
+        success: false,
+        message: 'Local dev server not responding.',
+      };
+    }
+  };
+
+  // Test Cloud Connection
+  const testCloudConnection = async (testUrl?: string, testKey?: string) => {
+    return await testSupabaseConnection(testUrl, testKey);
+  };
+
+  // Save Custom Cloud Credentials
+  const saveCloudConfig = async (url: string, key: string) => {
+    saveCustomSupabaseConfig(url, key);
+    const test = await testSupabaseConnection(url, key);
+    if (test.success) {
+      setCloudSyncStatus('connected');
+      setCloudSyncError(null);
+      // Immediately trigger upload of local data
+      saveFullSiteData({
+        profile,
+        projects,
+        tools,
+        skillGroups,
+        certificates,
+      });
+    } else {
+      setCloudSyncStatus('error');
+      setCloudSyncError(test.message);
+    }
+    return test;
+  };
+
+  const clearCloudConfig = () => {
+    clearCustomSupabaseConfig();
+    setCloudSyncStatus('disconnected');
+    setCloudSyncError(null);
+  };
+
   // Supabase Cloud Synchronization (Loads latest data from Supabase for all visitors worldwide)
   const isInitialMount = React.useRef(true);
 
@@ -203,35 +315,54 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     let isMounted = true;
     const loadFromCloud = async () => {
-      try {
-        const remote = await fetchFullSiteData();
-        if (!isMounted || !remote) {
+      if (!isSupabaseConfigured()) {
+        if (isMounted) {
+          setCloudSyncStatus('disconnected');
           isInitialMount.current = false;
-          return;
         }
-        if (remote.profile) {
-          setProfile((prev) => ({ ...prev, ...remote.profile }));
-        }
-        if (remote.projects && Array.isArray(remote.projects) && remote.projects.length > 0) {
-          setProjects(remote.projects.map(migrateProjectToDynamicSections));
-        }
-        if (remote.tools && Array.isArray(remote.tools) && remote.tools.length > 0) {
-          setTools(remote.tools);
-        }
-        if (remote.skillGroups && Array.isArray(remote.skillGroups) && remote.skillGroups.length > 0) {
-          setSkillGroups(remote.skillGroups);
-        }
-        if (remote.certificates && Array.isArray(remote.certificates) && remote.certificates.length > 0) {
-          setCertificates(remote.certificates);
-        }
+        return;
+      }
 
-        // Fetch cloud contact messages
-        const cloudMessages = await fetchContactMessages();
-        if (cloudMessages && Array.isArray(cloudMessages) && cloudMessages.length > 0) {
-          setMessages(cloudMessages);
+      try {
+        if (isMounted) setCloudSyncStatus('syncing');
+        const remote = await fetchFullSiteData();
+        if (!isMounted) return;
+
+        if (remote) {
+          setCloudSyncStatus('connected');
+          setCloudSyncError(null);
+
+          if (remote.profile) {
+            setProfile((prev) => ({ ...prev, ...remote.profile }));
+          }
+          if (remote.projects && Array.isArray(remote.projects) && remote.projects.length > 0) {
+            setProjects(remote.projects.map(migrateProjectToDynamicSections));
+          }
+          if (remote.tools && Array.isArray(remote.tools) && remote.tools.length > 0) {
+            setTools(remote.tools);
+          }
+          if (remote.skillGroups && Array.isArray(remote.skillGroups) && remote.skillGroups.length > 0) {
+            setSkillGroups(remote.skillGroups);
+          }
+          if (remote.certificates && Array.isArray(remote.certificates) && remote.certificates.length > 0) {
+            setCertificates(remote.certificates);
+          }
+
+          // Fetch cloud contact messages
+          const cloudMessages = await fetchContactMessages();
+          if (cloudMessages && Array.isArray(cloudMessages) && cloudMessages.length > 0) {
+            setMessages(cloudMessages);
+          }
+        } else {
+          setCloudSyncStatus('error');
+          setCloudSyncError('Could not retrieve data from cloud database.');
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn('Initial cloud sync error:', e);
+        if (isMounted) {
+          setCloudSyncStatus('error');
+          setCloudSyncError(e?.message || 'Failed to sync with Supabase cloud database.');
+        }
       } finally {
         setTimeout(() => {
           if (isMounted) isInitialMount.current = false;
@@ -245,20 +376,40 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, []);
 
-  // Auto-sync all admin changes to Supabase cloud
+  // Auto-sync all admin changes to Supabase cloud and local dev file
   useEffect(() => {
     if (isInitialMount.current) {
       return;
     }
-    const timer = setTimeout(() => {
-      saveFullSiteData({
+
+    // 1. In local dev mode, automatically write to src/data/initialData.ts
+    syncToLocalDisk().catch(() => {});
+
+    // 2. If Supabase is configured, push to cloud database for live website visitors
+    if (!isSupabaseConfigured()) {
+      setCloudSyncStatus('disconnected');
+      return;
+    }
+
+    setCloudSyncStatus('syncing');
+    const timer = setTimeout(async () => {
+      const res = await saveFullSiteData({
         profile,
         projects,
         tools,
         skillGroups,
         certificates,
       });
-    }, 500);
+
+      if (res.success) {
+        setCloudSyncStatus('connected');
+        setCloudSyncError(null);
+      } else {
+        setCloudSyncStatus('error');
+        setCloudSyncError(res.error || 'Failed to persist to cloud database.');
+      }
+    }, 600);
+
     return () => clearTimeout(timer);
   }, [profile, projects, tools, skillGroups, certificates]);
 
@@ -576,13 +727,25 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
+  // Security: Passcode helper
+  const getExpectedPasscode = (): string => {
+    const envPass = (import.meta.env.VITE_ADMIN_PASSCODE as string | undefined)?.trim();
+    if (envPass) return envPass;
+    const customPass = typeof localStorage !== 'undefined' ? localStorage.getItem('ar_admin_passcode_custom') : null;
+    if (customPass && customPass.trim()) return customPass.trim();
+    return profile.adminPasscode || 'ashikur2026';
+  };
+
   // Security: Change Passcode
   const changeAdminPasscode = (currentPasscode: string, newPasscode: string) => {
-    if (currentPasscode.trim() !== profile.adminPasscode.trim()) {
+    if (currentPasscode.trim() !== getExpectedPasscode()) {
       return { success: false, message: 'Current passcode is incorrect.' };
     }
     if (!newPasscode.trim() || newPasscode.trim().length < 6) {
       return { success: false, message: 'New passcode must be at least 6 characters.' };
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('ar_admin_passcode_custom', newPasscode.trim());
     }
     updateProfile({ adminPasscode: newPasscode.trim() });
     return { success: true, message: 'Passcode changed successfully. Keep it safe!' };
@@ -602,7 +765,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
     }
 
-    if (passcode.trim() === profile.adminPasscode.trim()) {
+    if (passcode.trim() === getExpectedPasscode()) {
       setIsAdminAuthenticated(true);
       sessionStorage.setItem(STORAGE_KEYS.ADMIN_AUTH, 'true');
       localStorage.removeItem(STORAGE_KEYS.FAILED_ATTEMPTS);
@@ -738,6 +901,13 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         resetToDefaults,
         exportData,
         importData,
+        cloudSyncStatus,
+        cloudSyncError,
+        testCloudConnection,
+        saveCloudConfig,
+        clearCloudConfig,
+        syncToLocalDisk,
+        generateInitialDataTsCode,
       }}
     >
       {children}

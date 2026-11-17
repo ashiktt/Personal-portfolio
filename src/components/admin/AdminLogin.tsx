@@ -135,9 +135,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onShowToast }) => {
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>Rate-limited brute force protection &amp; session security</span>
           </p>
-          <p className="text-[10px] text-slate-600">
-            Forgot passcode? Default seed: <code className="text-slate-500">ashikur2026</code>
-          </p>
         </div>
       </motion.div>
     </div>

@@ -145,7 +145,6 @@ export interface SiteProfile {
   emailJsConfig: EmailJsConfig;
   adminPasscode: string;
   hideAdminFooterLink?: boolean;
-  adminSecretHint?: string;
 }
 
 export interface ContactMessage {

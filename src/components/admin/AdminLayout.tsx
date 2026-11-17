@@ -9,7 +9,13 @@ import {
   Mail, 
   Cpu,
   Inbox,
-  ShieldCheck
+  ShieldCheck,
+  RefreshCw,
+  Download,
+  Copy,
+  X,
+  FileCode,
+  Database
 } from 'lucide-react';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { ProjectManager } from './ProjectManager';
@@ -31,10 +37,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onShowToast }) => {
     skillGroups, 
     publishedProjects, 
     logoutAdmin, 
-    profile 
+    profile,
+    cloudSyncStatus,
+    cloudSyncError,
+    syncToLocalDisk,
+    generateInitialDataTsCode,
   } = usePortfolio();
   
   const [activeTab, setActiveTab] = useState<'projects' | 'certificates' | 'skills' | 'messages' | 'settings'>('projects');
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const navigate = useNavigate();
 
   const unreadMessagesCount = messages.filter((m) => !m.read).length;
@@ -60,10 +72,28 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onShowToast }) => {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-white text-sm sm:text-base">Portfolio Admin</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-mono flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Live Sync
-                </span>
+                {cloudSyncStatus === 'connected' && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-mono flex items-center gap-1" title="Connected to Supabase. Live updates sync automatically to all visitors.">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Cloud Synced
+                  </span>
+                )}
+                {cloudSyncStatus === 'syncing' && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/25 text-[10px] font-mono flex items-center gap-1 animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                    Syncing...
+                  </span>
+                )}
+                {(cloudSyncStatus === 'disconnected' || cloudSyncStatus === 'error') && (
+                  <button
+                    onClick={() => setActiveTab('settings')}
+                    className="px-2.5 py-0.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[10px] font-mono flex items-center gap-1 transition-colors"
+                    title="Changes saved in local browser only. Click to connect Supabase or publish to code."
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    Local Storage (Click to Sync)
+                  </button>
+                )}
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
                 Secure management for {profile.name}
@@ -74,11 +104,31 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onShowToast }) => {
           {/* Action Header Buttons */}
           <div className="flex items-center gap-2.5">
             <button
+              onClick={async () => {
+                setIsPublishing(true);
+                const res = await syncToLocalDisk();
+                setIsPublishing(false);
+                if (res.success) {
+                  onShowToast('success', 'Changes Saved to initialData.ts', 'Run git commit & push to update your live website!');
+                } else {
+                  setShowPublishModal(true);
+                }
+              }}
+              disabled={isPublishing}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600/90 hover:bg-blue-600 border border-blue-400/30 text-xs font-semibold text-white shadow-md shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+              title="Save changes so your live website updates"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isPublishing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Save to Live Website</span>
+              <span className="sm:hidden">Save</span>
+            </button>
+
+            <button
               onClick={() => navigate('/')}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-200 hover:text-white transition-colors"
             >
               <Eye className="w-3.5 h-3.5 text-blue-400" />
-              <span>Preview Public Site</span>
+              <span className="hidden sm:inline">Preview Public Site</span>
             </button>
 
             <button
@@ -241,6 +291,98 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onShowToast }) => {
         </div>
 
       </main>
+
+      {/* Save to Live Website / Publish Modal */}
+      {showPublishModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg p-6 sm:p-8 rounded-3xl bg-[#0E1322] border border-slate-800 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
+                  <FileCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">How Live Updates Work</h3>
+                  <p className="text-xs text-slate-400">Update your live deployed portfolio</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPublishModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300">
+              <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-2">
+                <span className="font-bold text-blue-300 block text-sm">Option 1: Connect Supabase (0 Code / Instant)</span>
+                <p className="text-slate-400 leading-relaxed">
+                  Connect your free Supabase database in Settings. Every project, tool, and certificate you add will immediately appear on your live website for all visitors worldwide without touching code!
+                </p>
+                <button
+                  onClick={() => {
+                    setShowPublishModal(false);
+                    setActiveTab('settings');
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs mt-1"
+                >
+                  Configure Supabase Cloud in Settings →
+                </button>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                <span className="font-bold text-slate-200 block text-sm">Option 2: Git Commit &amp; Deploy</span>
+                <p className="text-slate-400 leading-relaxed">
+                  Download or copy your updated <code className="text-sky-300">initialData.ts</code>, place it into <code className="text-slate-200">src/data/initialData.ts</code>, and push to GitHub. Netlify/Vercel will redeploy your live website with the updated content!
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      const code = generateInitialDataTsCode();
+                      const blob = new Blob([code], { type: 'text/typescript' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = 'initialData.ts';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                      onShowToast('success', 'Downloaded initialData.ts', 'Replace src/data/initialData.ts and git push.');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Download initialData.ts</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const code = generateInitialDataTsCode();
+                      navigator.clipboard.writeText(code);
+                      onShowToast('success', 'Copied to Clipboard!', 'Paste into src/data/initialData.ts');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Copy Code</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setShowPublishModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

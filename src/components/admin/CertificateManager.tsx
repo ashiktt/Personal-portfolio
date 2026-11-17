@@ -8,7 +8,7 @@ interface CertificateManagerProps {
 }
 
 export const CertificateManager: React.FC<CertificateManagerProps> = ({ onShowToast }) => {
-  const { certificates, addCertificate, updateCertificate, deleteCertificate } = usePortfolio();
+  const { certificates, addCertificate, updateCertificate, deleteCertificate, cloudSyncStatus } = usePortfolio();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -99,10 +99,22 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({ onShowTo
 
     if (editingId) {
       updateCertificate(editingId, certData);
-      onShowToast('success', 'Certificate Updated', `"${formData.title}" updated.`);
+      onShowToast(
+        'success',
+        'Certificate Updated',
+        cloudSyncStatus === 'connected'
+          ? `"${formData.title}" updated and synced live to cloud database.`
+          : `"${formData.title}" updated. Click "Save to Live Website" above to publish.`
+      );
     } else {
       addCertificate(certData);
-      onShowToast('success', 'Certificate Added', `"${formData.title}" added to credentials.`);
+      onShowToast(
+        'success',
+        'Certificate Added',
+        cloudSyncStatus === 'connected'
+          ? `"${formData.title}" added and synced live to cloud database!`
+          : `"${formData.title}" added. Click "Save to Live Website" above to publish.`
+      );
     }
 
     resetForm();

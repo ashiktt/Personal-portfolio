@@ -3,27 +3,166 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export const DEFAULT_FALLBACK_AVATAR =
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80';
 
-const supabaseUrl =
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
-  'https://uwowytatldwfbxdgruxf.supabase.co';
-const supabaseAnonKey =
-  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
-  'sb_publishable_lN91wbBr3V52JOfq2JzFcg_-QA_Qv7S';
+const STORAGE_KEYS = {
+  CUSTOM_URL: 'ar_custom_supabase_url',
+  CUSTOM_KEY: 'ar_custom_supabase_key',
+};
+
+// Known dead placeholder project ID
+const DEAD_PLACEHOLDER_SUBSTRING = 'uwowytatldwfbxdgruxf';
+
+export interface SupabaseConfig {
+  url: string;
+  anonKey: string;
+  isCustom: boolean;
+}
+
+export const getSupabaseConfig = (): SupabaseConfig => {
+  const customUrl = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.CUSTOM_URL) : null;
+  const customKey = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.CUSTOM_KEY) : null;
+
+  if (customUrl && customKey && customUrl.trim() && customKey.trim()) {
+    return {
+      url: customUrl.trim(),
+      anonKey: customKey.trim(),
+      isCustom: true,
+    };
+  }
+
+  const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || '';
+  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() || '';
+
+  // If the env contains the dead placeholder, ignore it
+  if (envUrl.includes(DEAD_PLACEHOLDER_SUBSTRING)) {
+    return { url: '', anonKey: '', isCustom: false };
+  }
+
+  return {
+    url: envUrl,
+    anonKey: envKey,
+    isCustom: false,
+  };
+};
 
 export const isSupabaseConfigured = (): boolean => {
+  const { url, anonKey } = getSupabaseConfig();
   return (
-    !!supabaseUrl &&
-    !!supabaseAnonKey &&
-    supabaseUrl.startsWith('http') &&
-    supabaseAnonKey.length > 20 &&
-    !supabaseUrl.includes('your-project-id')
+    !!url &&
+    !!anonKey &&
+    url.startsWith('https://') &&
+    anonKey.length > 20 &&
+    !url.includes('your-project-id') &&
+    !url.includes(DEAD_PLACEHOLDER_SUBSTRING)
   );
 };
 
-// Initialize client
-export const supabase: SupabaseClient | null = isSupabaseConfigured()
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+let cachedClient: SupabaseClient | null = null;
+let cachedUrl = '';
+let cachedKey = '';
+
+export const getSupabaseClient = (): SupabaseClient | null => {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+  const { url, anonKey } = getSupabaseConfig();
+  if (cachedClient && cachedUrl === url && cachedKey === anonKey) {
+    return cachedClient;
+  }
+  try {
+    cachedClient = createClient(url, anonKey);
+    cachedUrl = url;
+    cachedKey = anonKey;
+    return cachedClient;
+  } catch (err) {
+    console.warn('Failed to initialize Supabase client:', err);
+    return null;
+  }
+};
+
+export const saveCustomSupabaseConfig = (url: string, anonKey: string): void => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_URL, url.trim());
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_KEY, anonKey.trim());
+  }
+  cachedClient = null;
+  cachedUrl = '';
+  cachedKey = '';
+};
+
+export const clearCustomSupabaseConfig = (): void => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(STORAGE_KEYS.CUSTOM_URL);
+    localStorage.removeItem(STORAGE_KEYS.CUSTOM_KEY);
+  }
+  cachedClient = null;
+  cachedUrl = '';
+  cachedKey = '';
+};
+
+export const testSupabaseConnection = async (
+  testUrl?: string,
+  testKey?: string
+): Promise<{ success: boolean; message: string }> => {
+  const cfg = getSupabaseConfig();
+  const url = testUrl !== undefined ? testUrl.trim() : cfg.url;
+  const key = testKey !== undefined ? testKey.trim() : cfg.anonKey;
+
+  if (!url || !key) {
+    return {
+      success: false,
+      message: 'Supabase URL and Anon Key are required.',
+    };
+  }
+
+  if (!url.startsWith('https://')) {
+    return {
+      success: false,
+      message: 'Supabase URL must start with https://',
+    };
+  }
+
+  if (url.includes(DEAD_PLACEHOLDER_SUBSTRING)) {
+    return {
+      success: false,
+      message: 'The URL provided is a non-existent placeholder. Please use your real Supabase project URL.',
+    };
+  }
+
+  try {
+    const client = createClient(url, key);
+    const { error } = await client
+      .from('portfolio_settings')
+      .select('id, updated_at')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (error) {
+      if (error.message.includes('relation "public.portfolio_settings" does not exist') || error.code === '42P01') {
+        return {
+          success: false,
+          message:
+            'Connected to Supabase, but table "portfolio_settings" is missing. Please run the SQL migration script (supabase/migrations/01_portfolio_settings.sql) in your Supabase SQL Editor.',
+        };
+      }
+      return {
+        success: false,
+        message: `Supabase returned: ${error.message}`,
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Supabase connection verified! Cloud sync is operational and ready to update your live website.',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Connection error: ${err?.message || 'Could not connect to host.'}`,
+    };
+  }
+};
+
+export const supabase: SupabaseClient | null = getSupabaseClient();
 
 export interface UploadResult {
   success: boolean;
@@ -43,12 +182,13 @@ export interface SiteCloudData {
  * Fetches the entire site data (profile, projects, tools, skills, certificates) from Supabase
  */
 export const fetchFullSiteData = async (): Promise<SiteCloudData | null> => {
-  if (!supabase || !isSupabaseConfigured()) {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) {
     return null;
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('portfolio_settings')
       .select('profile_photo_url, site_data')
       .eq('id', 1)
@@ -77,32 +217,42 @@ export const fetchFullSiteData = async (): Promise<SiteCloudData | null> => {
 /**
  * Persists the entire site data (profile, projects, tools, skills, certificates) to Supabase
  */
-export const saveFullSiteData = async (siteData: SiteCloudData): Promise<boolean> => {
-  if (!supabase || !isSupabaseConfigured()) {
-    return false;
+export const saveFullSiteData = async (
+  siteData: SiteCloudData
+): Promise<{ success: boolean; error?: string }> => {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) {
+    return { success: false, error: 'Supabase cloud database is not configured' };
   }
 
   try {
-    const { error } = await supabase
-      .from('portfolio_settings')
-      .upsert(
-        {
-          id: 1,
-          profile_photo_url: siteData.profile?.avatarUrl || null,
-          site_data: siteData,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      );
+    // Strip adminPasscode from profile to keep it secure
+    const safeData: SiteCloudData = {
+      ...siteData,
+      profile: siteData.profile ? { ...siteData.profile } : undefined,
+    };
+    if (safeData.profile && safeData.profile.adminPasscode) {
+      delete safeData.profile.adminPasscode;
+    }
+
+    const { error } = await client.from('portfolio_settings').upsert(
+      {
+        id: 1,
+        profile_photo_url: safeData.profile?.avatarUrl || null,
+        site_data: safeData,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
 
     if (error) {
       console.error('Supabase: Error saving site_data:', error);
-      return false;
+      return { success: false, error: error.message };
     }
-    return true;
+    return { success: true };
   } catch (err: any) {
     console.error('Supabase: Network error saving full site data:', err);
-    return false;
+    return { success: false, error: err?.message || 'Network error occurred' };
   }
 };
 
@@ -115,9 +265,10 @@ export const insertContactMessage = async (msg: {
   subject: string;
   message: string;
 }): Promise<boolean> => {
-  if (!supabase || !isSupabaseConfigured()) return false;
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return false;
   try {
-    const { error } = await supabase.from('contact_messages').insert({
+    const { error } = await client.from('contact_messages').insert({
       name: msg.name,
       email: msg.email,
       subject: msg.subject,
@@ -136,9 +287,10 @@ export const insertContactMessage = async (msg: {
 };
 
 export const fetchContactMessages = async (): Promise<any[]> => {
-  if (!supabase || !isSupabaseConfigured()) return [];
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('contact_messages')
       .select('*')
       .order('created_at', { ascending: false });
@@ -168,9 +320,10 @@ export const fetchContactMessages = async (): Promise<any[]> => {
 };
 
 export const deleteContactMessageFromDb = async (id: string): Promise<boolean> => {
-  if (!supabase || !isSupabaseConfigured()) return false;
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return false;
   try {
-    const { error } = await supabase.from('contact_messages').delete().eq('id', id);
+    const { error } = await client.from('contact_messages').delete().eq('id', id);
     return !error;
   } catch {
     return false;
@@ -178,9 +331,10 @@ export const deleteContactMessageFromDb = async (id: string): Promise<boolean> =
 };
 
 export const markContactMessageReadInDb = async (id: string): Promise<boolean> => {
-  if (!supabase || !isSupabaseConfigured()) return false;
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return false;
   try {
-    const { error } = await supabase.from('contact_messages').update({ read: true }).eq('id', id);
+    const { error } = await client.from('contact_messages').update({ read: true }).eq('id', id);
     return !error;
   } catch {
     return false;
@@ -188,9 +342,13 @@ export const markContactMessageReadInDb = async (id: string): Promise<boolean> =
 };
 
 export const clearContactMessagesInDb = async (): Promise<boolean> => {
-  if (!supabase || !isSupabaseConfigured()) return false;
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) return false;
   try {
-    const { error } = await supabase.from('contact_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    const { error } = await client
+      .from('contact_messages')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
     return !error;
   } catch {
     return false;
@@ -201,12 +359,13 @@ export const clearContactMessagesInDb = async (): Promise<boolean> => {
  * Fetches the persistent profile photo URL from Supabase 'portfolio_settings' table
  */
 export const fetchProfilePhotoUrl = async (): Promise<string | null> => {
-  if (!supabase || !isSupabaseConfigured()) {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) {
     return null;
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('portfolio_settings')
       .select('profile_photo_url')
       .eq('id', 1)
@@ -233,18 +392,17 @@ export const fetchProfilePhotoUrl = async (): Promise<string | null> => {
  * and persists the resulting public URL into 'portfolio_settings' table.
  */
 export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
-  if (!supabase || !isSupabaseConfigured()) {
+  const client = getSupabaseClient();
+  if (!client || !isSupabaseConfigured()) {
     return {
       success: false,
       error:
-        'Supabase is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment variables.',
+        'Supabase is not configured. Please add your Supabase URL and Anon Key in Admin Settings -> Cloud Database.',
     };
   }
 
-  // 1. File Type & Extension Validation
   const validMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   const validExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-
   const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
 
   if (!validMimeTypes.includes(file.type) && !validExtensions.includes(fileExt)) {
@@ -254,7 +412,6 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
     };
   }
 
-  // 2. File Size Validation (Max 5MB)
   const MAX_SIZE_BYTES = 5 * 1024 * 1024;
   if (file.size > MAX_SIZE_BYTES) {
     return {
@@ -264,13 +421,10 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
   }
 
   try {
-    // 3. Generate stable storage file path
-    // Using a timestamped filename inside the 'profile/' folder ensures instant cache busting
     const fileName = `profile-photo-${Date.now()}.${fileExt || 'jpg'}`;
     const filePath = `profile/${fileName}`;
 
-    // 4. Upload to 'portfolio-images' bucket
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await client.storage
       .from('portfolio-images')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -286,11 +440,7 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
       };
     }
 
-    // 5. Get Public URL from Supabase Storage
-    const { data: urlData } = supabase.storage
-      .from('portfolio-images')
-      .getPublicUrl(filePath);
-
+    const { data: urlData } = client.storage.from('portfolio-images').getPublicUrl(filePath);
     const publicUrl = urlData?.publicUrl;
 
     if (!publicUrl) {
@@ -300,17 +450,14 @@ export const uploadProfilePhoto = async (file: File): Promise<UploadResult> => {
       };
     }
 
-    // 6. Persist the Public URL in 'portfolio_settings' table (id = 1)
-    const { error: dbError } = await supabase
-      .from('portfolio_settings')
-      .upsert(
-        {
-          id: 1,
-          profile_photo_url: publicUrl,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      );
+    const { error: dbError } = await client.from('portfolio_settings').upsert(
+      {
+        id: 1,
+        profile_photo_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
 
     if (dbError) {
       console.error('Supabase Database Error saving profile_photo_url:', dbError);

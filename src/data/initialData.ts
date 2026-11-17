@@ -28,7 +28,6 @@ I leverage user research, wireframing, prototyping, and AI-assisted product deve
   },
   adminPasscode: 'ashikur2026',
   hideAdminFooterLink: false,
-  adminSecretHint: 'Default year 2026',
 };
 
 export const INITIAL_PROJECTS: Project[] = [
