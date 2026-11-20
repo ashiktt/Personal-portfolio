@@ -3,8 +3,17 @@ import { MongoClient } from 'mongodb';
 let cachedClient = null;
 let cachedDb = null;
 
+function cleanMongoUri(rawUri) {
+  if (!rawUri) return '';
+  let uri = rawUri.trim().replace(/^['"]|['"]$/g, '');
+  // Automatically strip accidental < > brackets around username or password
+  // e.g. mongodb+srv://<user>:<password>@... -> mongodb+srv://user:password@...
+  uri = uri.replace(/<([^>]+)>/g, '$1');
+  return uri;
+}
+
 async function getDatabase(customUri) {
-  const uri = customUri || process.env.MONGODB_URI;
+  const uri = cleanMongoUri(customUri || process.env.MONGODB_URI);
   if (!uri) {
     throw new Error('MONGODB_URI is not configured in Vercel Environment Variables');
   }

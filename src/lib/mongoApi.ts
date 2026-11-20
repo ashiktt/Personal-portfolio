@@ -10,17 +10,26 @@ const STORAGE_KEYS = {
   CUSTOM_MONGO_URI: 'ar_custom_mongodb_uri',
 };
 
+export const cleanMongoUri = (rawUri: string): string => {
+  if (!rawUri) return '';
+  let uri = rawUri.trim().replace(/^['"]|['"]$/g, '');
+  // Strip accidental < > brackets around username or password
+  uri = uri.replace(/<([^>]+)>/g, '$1');
+  return uri;
+};
+
 export const getCustomMongoUri = (): string => {
   if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEYS.CUSTOM_MONGO_URI) || '';
+    return cleanMongoUri(localStorage.getItem(STORAGE_KEYS.CUSTOM_MONGO_URI) || '');
   }
   return '';
 };
 
 export const saveCustomMongoUri = (uri: string): void => {
   if (typeof localStorage !== 'undefined') {
-    if (uri.trim()) {
-      localStorage.setItem(STORAGE_KEYS.CUSTOM_MONGO_URI, uri.trim());
+    const cleaned = cleanMongoUri(uri);
+    if (cleaned) {
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_MONGO_URI, cleaned);
     } else {
       localStorage.removeItem(STORAGE_KEYS.CUSTOM_MONGO_URI);
     }

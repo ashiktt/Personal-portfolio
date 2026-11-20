@@ -3,8 +3,15 @@ import { MongoClient, ObjectId } from 'mongodb';
 let cachedClient = null;
 let cachedDb = null;
 
+function cleanMongoUri(rawUri) {
+  if (!rawUri) return '';
+  let uri = rawUri.trim().replace(/^['"]|['"]$/g, '');
+  uri = uri.replace(/<([^>]+)>/g, '$1');
+  return uri;
+}
+
 async function getDatabase() {
-  const uri = process.env.MONGODB_URI;
+  const uri = cleanMongoUri(process.env.MONGODB_URI);
   if (!uri) {
     throw new Error('MONGODB_URI is not set in environment variables');
   }
