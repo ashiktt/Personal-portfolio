@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit3, Upload, Award, Calendar, Check, X, ExternalLink, Save, Sparkles } from 'lucide-react';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { Certificate } from '../../types';
+import { compressImageFile } from '../../lib/imageCompression';
 
 interface CertificateManagerProps {
   onShowToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void;
@@ -56,18 +57,18 @@ export const CertificateManager: React.FC<CertificateManagerProps> = ({ onShowTo
   const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        onShowToast('error', 'Image Too Large', 'Please select an image smaller than 2MB.');
+      if (file.size > 5 * 1024 * 1024) {
+        onShowToast('error', 'Image Too Large', 'Please select an image smaller than 5MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setFormData((prev) => ({ ...prev, image: event.target!.result as string }));
-          onShowToast('success', 'Image Uploaded', 'Certificate preview image ready.');
-        }
-      };
-      reader.readAsDataURL(file);
+      compressImageFile(file, 1000, 800, 0.8)
+        .then((compressedUrl) => {
+          setFormData((prev) => ({ ...prev, image: compressedUrl }));
+          onShowToast('success', 'Image Uploaded & Compressed', 'Certificate preview image ready.');
+        })
+        .catch(() => {
+          onShowToast('error', 'Upload Error', 'Failed to process image.');
+        });
     }
   };
 

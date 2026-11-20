@@ -66,14 +66,17 @@ export const testMongoConnection = async (
       headers,
     });
 
-    if (!res.ok && res.status !== 200) {
+    const rawText = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(rawText);
+    } catch {
       return {
         success: false,
-        message: `API returned HTTP ${res.status}: ${res.statusText}`,
+        message: `Server returned HTTP ${res.status}: ${rawText.slice(0, 100)}`,
       };
     }
 
-    const data = await res.json();
     return {
       success: !!data.success && !!data.connected,
       message: data.message || (data.connected ? 'MongoDB connected!' : 'Could not connect to MongoDB'),
@@ -102,7 +105,14 @@ export const fetchMongoSiteData = async (): Promise<MongoSiteData | null> => {
       return null;
     }
 
-    const json = await res.json();
+    const rawText = await res.text();
+    let json: any = {};
+    try {
+      json = JSON.parse(rawText);
+    } catch {
+      return null;
+    }
+
     if (json.success && json.data) {
       return json.data as MongoSiteData;
     }
@@ -128,7 +138,23 @@ export const saveMongoSiteData = async (
       body: JSON.stringify(siteData),
     });
 
-    const json = await res.json();
+    const rawText = await res.text();
+    let json: any = {};
+    try {
+      json = JSON.parse(rawText);
+    } catch {
+      if (res.status === 413 || rawText.includes('Request Entity Too Large') || rawText.includes('Payload Too Large')) {
+        return {
+          success: false,
+          message: 'Images exceed the 4.5MB upload limit. Please use an image URL or smaller compressed photo.',
+        };
+      }
+      return {
+        success: false,
+        message: `Server error (HTTP ${res.status}): ${rawText.slice(0, 120)}`,
+      };
+    }
+
     if (res.ok && json.success) {
       return {
         success: true,

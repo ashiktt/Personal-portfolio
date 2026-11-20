@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { Project, ProjectSection, ProjectSectionType, ProjectSectionItem, ProjectSectionImage } from '../../types';
+import { compressImageFile } from '../../lib/imageCompression';
 import { ProjectView } from '../projects/ProjectView';
 
 interface ProjectManagerProps {
@@ -358,18 +359,18 @@ export const ProjectManager: React.FC<ProjectManagerProps> = ({ onShowToast }) =
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 3 * 1024 * 1024) {
-        onShowToast('error', 'Image Too Large', 'Please select an image smaller than 3MB.');
+      if (file.size > 5 * 1024 * 1024) {
+        onShowToast('error', 'Image Too Large', 'Please select an image smaller than 5MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setFormData((prev) => ({ ...prev, [targetField]: event.target!.result as string }));
-          onShowToast('success', 'Image Uploaded', `${targetField} ready.`);
-        }
-      };
-      reader.readAsDataURL(file);
+      compressImageFile(file, 1200, 1000, 0.8)
+        .then((compressedUrl) => {
+          setFormData((prev) => ({ ...prev, [targetField]: compressedUrl }));
+          onShowToast('success', 'Image Uploaded & Compressed', `${targetField} ready.`);
+        })
+        .catch(() => {
+          onShowToast('error', 'Upload Error', 'Failed to process image.');
+        });
     }
   };
 

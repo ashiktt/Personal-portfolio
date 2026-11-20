@@ -29,6 +29,7 @@ import { IconLinkedin, IconGithub } from '../ui/BrandIcons';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { uploadProfilePhoto, isSupabaseConfigured, getSupabaseConfig, DEFAULT_FALLBACK_AVATAR, SUPABASE_SETUP_SQL } from '../../lib/supabase';
 import { getCustomMongoUri, saveCustomMongoUri, clearCustomMongoUri, testMongoConnection } from '../../lib/mongoApi';
+import { compressImageFile } from '../../lib/imageCompression';
 
 interface SettingsManagerProps {
   onShowToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void;
@@ -183,21 +184,14 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
           );
         }
       } else {
-        // Fallback for local preview if Supabase env vars are not set
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            const dataUrl = event.target.result as string;
-            setFormData((prev) => ({ ...prev, avatarUrl: dataUrl }));
-            updateProfile({ avatarUrl: dataUrl });
-            onShowToast(
-              'info',
-              'Local Preview Updated',
-              'To save permanently in cloud, add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.'
-            );
-          }
-        };
-        reader.readAsDataURL(file);
+        const compressedUrl = await compressImageFile(file, 600, 600, 0.82);
+        setFormData((prev) => ({ ...prev, avatarUrl: compressedUrl }));
+        updateProfile({ avatarUrl: compressedUrl });
+        onShowToast(
+          'success',
+          'Profile Photo Ready',
+          'Photo compressed and updated. Click "Save to Live Website" to publish.'
+        );
       }
     } catch (err: any) {
       console.error('Error during avatar file upload:', err);

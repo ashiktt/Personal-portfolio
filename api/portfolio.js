@@ -1,5 +1,13 @@
 import { MongoClient } from 'mongodb';
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '4.5mb',
+    },
+  },
+};
+
 let cachedClient = null;
 let cachedDb = null;
 
