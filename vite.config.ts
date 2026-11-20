@@ -47,6 +47,51 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
           res.end();
         }
       });
+
+      // Also support /api/portfolio in local dev
+      server.middlewares.use('/api/portfolio', (req: any, res: any) => {
+        if (req.method === 'GET') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, data: null, message: 'Local dev mode' }));
+          return;
+        }
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => (body += chunk));
+          req.on('end', () => {
+            try {
+              const { profile, projects, certificates, tools, skillGroups } = JSON.parse(body);
+              const filePath = path.resolve(process.cwd(), 'src/data/initialData.ts');
+
+              const fileContent = `import { SiteProfile, Project, Certificate, ToolItem, SkillGroup } from '../types';
+
+export const INITIAL_PROFILE: SiteProfile = ${JSON.stringify(profile, null, 2)};
+
+export const INITIAL_PROJECTS: Project[] = ${JSON.stringify(projects, null, 2)};
+
+export const INITIAL_CERTIFICATES: Certificate[] = ${JSON.stringify(certificates, null, 2)};
+
+export const INITIAL_TOOLS: ToolItem[] = ${JSON.stringify(tools, null, 2)};
+
+export const INITIAL_SKILL_GROUPS: SkillGroup[] = ${JSON.stringify(skillGroups, null, 2)};
+
+export const TOOLS_LIST = INITIAL_TOOLS;
+export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
+`;
+
+              fs.writeFileSync(filePath, fileContent, 'utf-8');
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, message: 'Saved to initialData.ts successfully!' }));
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: err?.message || 'Failed to save' }));
+            }
+          });
+          return;
+        }
+        res.writeHead(405);
+        res.end();
+      });
     },
   };
 }

@@ -28,6 +28,7 @@ import {
 import { IconLinkedin, IconGithub } from '../ui/BrandIcons';
 import { usePortfolio } from '../../context/PortfolioContext';
 import { uploadProfilePhoto, isSupabaseConfigured, getSupabaseConfig, DEFAULT_FALLBACK_AVATAR, SUPABASE_SETUP_SQL } from '../../lib/supabase';
+import { getCustomMongoUri, saveCustomMongoUri, clearCustomMongoUri, testMongoConnection } from '../../lib/mongoApi';
 
 interface SettingsManagerProps {
   onShowToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void;
@@ -52,7 +53,13 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
-  // Cloud Sync Form State
+  // Cloud Sync Form State (MongoDB Atlas & Supabase)
+  const [activeDbTab, setActiveDbTab] = useState<'mongodb' | 'supabase'>('mongodb');
+  const [mongoUri, setMongoUri] = useState(getCustomMongoUri());
+  const [isTestingMongo, setIsTestingMongo] = useState(false);
+  const [isSavingMongo, setIsSavingMongo] = useState(false);
+  const [mongoTestMessage, setMongoTestMessage] = useState<string | null>(null);
+
   const initialCloudCfg = getSupabaseConfig();
   const [cloudUrl, setCloudUrl] = useState(initialCloudCfg.url);
   const [cloudKey, setCloudKey] = useState(initialCloudCfg.anonKey);
@@ -922,14 +929,14 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
         )}
       </div>
 
-      {/* Cloud Database (Supabase) & Live Website Sync */}
+      {/* Cloud Database (MongoDB Atlas & Supabase) */}
       <div className="p-6 sm:p-8 rounded-3xl bg-[#0E1322]/80 border border-slate-800 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <Database className="w-4 h-4 text-emerald-400" />
-                Cloud Database (Supabase) &amp; Live Website Sync
+                Cloud Database &amp; Live Website Sync
               </h3>
               {cloudSyncStatus === 'connected' && (
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-mono flex items-center gap-1">
@@ -949,165 +956,290 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
                   {cloudSyncStatus === 'error' ? 'Connection Error' : 'Local Only (No Cloud DB)'}
                 </span>
               )}
-              {getSupabaseConfig().source === 'vercel' && (
-                <span className="px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/25 text-[10px] font-mono">
-                  Auto-detected from Vercel
-                </span>
-              )}
-              {getSupabaseConfig().source === 'custom' && (
-                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/25 text-[10px] font-mono">
-                  Custom Browser Override
-                </span>
-              )}
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Connect your Supabase project so changes in this admin dashboard immediately appear on your live website for all visitors worldwide.
+              Connect your cloud database so changes in this admin dashboard immediately appear on your live website for all visitors worldwide.
             </p>
+          </div>
+
+          {/* Database Selector Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setActiveDbTab('mongodb')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeDbTab === 'mongodb'
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              MongoDB Atlas (Recommended)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveDbTab('supabase')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                activeDbTab === 'supabase'
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Supabase
+            </button>
           </div>
         </div>
 
-        <div className="space-y-4 pt-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* MONGODB ATLAS TAB */}
+        {activeDbTab === 'mongodb' && (
+          <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300">Supabase Project URL</label>
-              <input
-                type="text"
-                placeholder="https://xyzcompany.supabase.co"
-                value={cloudUrl}
-                onChange={(e) => {
-                  setCloudUrl(e.target.value);
-                  setCloudTestMessage(null);
-                }}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300">Supabase Anon / Public Key</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-slate-300">
+                  MongoDB Atlas Connection String (URI)
+                </label>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  mongodb+srv://...
+                </span>
+              </div>
               <input
                 type="password"
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                value={cloudKey}
+                placeholder="mongodb+srv://username:password@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority"
+                value={mongoUri}
                 onChange={(e) => {
-                  setCloudKey(e.target.value);
-                  setCloudTestMessage(null);
+                  setMongoUri(e.target.value);
+                  setMongoTestMessage(null);
                 }}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono"
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 font-mono"
               />
+              <p className="text-[11px] text-slate-400">
+                You can test and save your URI here, or set <code className="text-emerald-400">MONGODB_URI</code> in your Vercel Project Settings for automatic server-side live sync.
+              </p>
             </div>
-          </div>
 
-          {cloudTestMessage && (
-            <div className={`p-3 rounded-xl border text-xs font-mono ${
-              cloudTestMessage.includes('verified') || cloudTestMessage.includes('operational')
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-            }`}>
-              {cloudTestMessage}
-            </div>
-          )}
+            {mongoTestMessage && (
+              <div className={`p-3 rounded-xl border text-xs font-mono ${
+                mongoTestMessage.includes('successfully') || mongoTestMessage.includes('verified') || mongoTestMessage.includes('OK')
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                  : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              }`}>
+                {mongoTestMessage}
+              </div>
+            )}
 
-          {cloudSyncError && !cloudTestMessage && (
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs">
-              <span className="font-semibold">Cloud Sync Notice:</span> {cloudSyncError}
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <button
-              type="button"
-              disabled={isTestingCloud || !cloudUrl.trim() || !cloudKey.trim()}
-              onClick={async () => {
-                setIsTestingCloud(true);
-                setCloudTestMessage(null);
-                const res = await testCloudConnection(cloudUrl, cloudKey);
-                setIsTestingCloud(false);
-                setCloudTestMessage(res.message);
-                if (res.success) {
-                  onShowToast('success', 'Connection Verified', res.message);
-                } else {
-                  onShowToast('error', 'Connection Test Failed', res.message);
-                }
-              }}
-              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-200 transition-colors disabled:opacity-50"
-            >
-              {isTestingCloud ? 'Testing...' : 'Test Connection'}
-            </button>
-
-            <button
-              type="button"
-              disabled={isSavingCloud || !cloudUrl.trim() || !cloudKey.trim()}
-              onClick={async () => {
-                setIsSavingCloud(true);
-                const res = await saveCloudConfig(cloudUrl, cloudKey);
-                setIsSavingCloud(false);
-                setCloudTestMessage(res.message);
-                if (res.success) {
-                  onShowToast('success', 'Cloud Database Connected', 'All portfolio data synced to Supabase! Live visitors will now see updates.');
-                } else {
-                  onShowToast('error', 'Could Not Connect', res.message);
-                }
-              }}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-semibold text-white shadow-md shadow-emerald-600/20 disabled:opacity-50"
-            >
-              {isSavingCloud ? 'Connecting & Syncing...' : 'Save & Connect Cloud'}
-            </button>
-
-            {isSupabaseConfigured() && (
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
                 type="button"
-                onClick={() => {
-                  clearCloudConfig();
-                  setCloudUrl('');
-                  setCloudKey('');
-                  setCloudTestMessage('Cloud credentials cleared. Local storage mode active.');
-                  onShowToast('info', 'Disconnected', 'Switched back to local storage mode.');
+                disabled={isTestingMongo}
+                onClick={async () => {
+                  setIsTestingMongo(true);
+                  setMongoTestMessage(null);
+                  const res = await testMongoConnection(mongoUri);
+                  setIsTestingMongo(false);
+                  setMongoTestMessage(res.message);
+                  if (res.success) {
+                    onShowToast('success', 'MongoDB Connected', res.message);
+                  } else {
+                    onShowToast('error', 'Connection Test Failed', res.message);
+                  }
                 }}
-                className="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-xs font-medium text-slate-400 hover:text-white ml-auto"
+                className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-200 transition-colors disabled:opacity-50"
               >
-                Disconnect
+                {isTestingMongo ? 'Testing...' : 'Test MongoDB Connection'}
               </button>
-            )}
-          </div>
 
-          {/* One-Click Supabase SQL Setup */}
-          <div className="pt-4 border-t border-slate-800/80 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
-                <p className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-                  <FileCode className="w-3.5 h-3.5 text-blue-400" />
-                  Supabase Database Setup (One-Time SQL Script)
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Creates the <code className="text-blue-300 font-mono">portfolio_settings</code> table and enables instant live updates.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isSavingMongo || !mongoUri.trim()}
+                onClick={async () => {
+                  setIsSavingMongo(true);
+                  const res = await saveCloudConfig(mongoUri, '');
+                  setIsSavingMongo(false);
+                  setMongoTestMessage(res.message);
+                  if (res.success) {
+                    onShowToast('success', 'MongoDB Connected & Synced', 'Portfolio data saved to MongoDB Atlas! Live visitors will now see updates.');
+                  } else {
+                    onShowToast('error', 'Could Not Connect', res.message);
+                  }
+                }}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-semibold text-white shadow-md shadow-emerald-600/20 disabled:opacity-50"
+              >
+                {isSavingMongo ? 'Connecting & Syncing...' : 'Save & Connect MongoDB'}
+              </button>
+
+              {mongoUri.trim() && (
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(SUPABASE_SETUP_SQL);
-                    setCopiedSql(true);
-                    setTimeout(() => setCopiedSql(false), 2500);
-                    onShowToast('success', 'SQL Script Copied!', 'Paste it in your Supabase SQL Editor and click Run.');
+                    clearCloudConfig();
+                    setMongoUri('');
+                    setMongoTestMessage('MongoDB custom credentials cleared.');
+                    onShowToast('info', 'Disconnected', 'Switched back to local storage mode.');
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-xs font-medium transition-all"
+                  className="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-xs font-medium text-slate-400 hover:text-white ml-auto"
                 >
-                  {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedSql ? 'Copied to Clipboard!' : 'Copy SQL Setup Script'}
+                  Disconnect
                 </button>
-                <a
-                  href="https://supabase.com/dashboard"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 transition-colors"
+              )}
+            </div>
+
+            {/* Quick MongoDB Atlas Guide */}
+            <div className="pt-4 border-t border-slate-800/80 space-y-2 text-xs text-slate-400">
+              <p className="font-semibold text-slate-300">How to connect MongoDB on Vercel:</p>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-400">
+                <li>In MongoDB Atlas: Go to <span className="text-slate-300 font-medium">Network Access</span> and ensure <code className="text-emerald-400">0.0.0.0/0</code> (Allow from Anywhere) is added.</li>
+                <li>In Vercel: Go to your project <span className="text-slate-300 font-medium">Settings → Environment Variables</span>.</li>
+                <li>Add variable <code className="text-emerald-400">MONGODB_URI</code> with your MongoDB connection string.</li>
+                <li>Hit Redeploy. Your live portfolio will automatically connect to MongoDB with zero client-side issues!</li>
+              </ol>
+            </div>
+          </div>
+        )}
+
+        {/* SUPABASE TAB */}
+        {activeDbTab === 'supabase' && (
+          <div className="space-y-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-300">Supabase Project URL</label>
+                <input
+                  type="text"
+                  placeholder="https://xyzcompany.supabase.co"
+                  value={cloudUrl}
+                  onChange={(e) => {
+                    setCloudUrl(e.target.value);
+                    setCloudTestMessage(null);
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-300">Supabase Anon / Public Key</label>
+                <input
+                  type="password"
+                  placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  value={cloudKey}
+                  onChange={(e) => {
+                    setCloudKey(e.target.value);
+                    setCloudTestMessage(null);
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono"
+                />
+              </div>
+            </div>
+
+            {cloudTestMessage && (
+              <div className={`p-3 rounded-xl border text-xs font-mono ${
+                cloudTestMessage.includes('verified') || cloudTestMessage.includes('operational')
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                  : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              }`}>
+                {cloudTestMessage}
+              </div>
+            )}
+
+            {cloudSyncError && !cloudTestMessage && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs">
+                <span className="font-semibold">Cloud Sync Notice:</span> {cloudSyncError}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                disabled={isTestingCloud || !cloudUrl.trim() || !cloudKey.trim()}
+                onClick={async () => {
+                  setIsTestingCloud(true);
+                  setCloudTestMessage(null);
+                  const res = await testCloudConnection(cloudUrl, cloudKey);
+                  setIsTestingCloud(false);
+                  setCloudTestMessage(res.message);
+                  if (res.success) {
+                    onShowToast('success', 'Connection Verified', res.message);
+                  } else {
+                    onShowToast('error', 'Connection Test Failed', res.message);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-200 transition-colors disabled:opacity-50"
+              >
+                {isTestingCloud ? 'Testing...' : 'Test Connection'}
+              </button>
+
+              <button
+                type="button"
+                disabled={isSavingCloud || !cloudUrl.trim() || !cloudKey.trim()}
+                onClick={async () => {
+                  setIsSavingCloud(true);
+                  const res = await saveCloudConfig(cloudUrl, cloudKey);
+                  setIsSavingCloud(false);
+                  setCloudTestMessage(res.message);
+                  if (res.success) {
+                    onShowToast('success', 'Cloud Database Connected', 'All portfolio data synced to Supabase! Live visitors will now see updates.');
+                  } else {
+                    onShowToast('error', 'Could Not Connect', res.message);
+                  }
+                }}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-semibold text-white shadow-md shadow-emerald-600/20 disabled:opacity-50"
+              >
+                {isSavingCloud ? 'Connecting & Syncing...' : 'Save & Connect Cloud'}
+              </button>
+
+              {isSupabaseConfigured() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearCloudConfig();
+                    setCloudUrl('');
+                    setCloudKey('');
+                    setCloudTestMessage('Cloud credentials cleared. Local storage mode active.');
+                    onShowToast('info', 'Disconnected', 'Switched back to local storage mode.');
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-xs font-medium text-slate-400 hover:text-white ml-auto"
                 >
-                  <span>Supabase Dashboard</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                </a>
+                  Disconnect
+                </button>
+              )}
+            </div>
+
+            {/* One-Click Supabase SQL Setup */}
+            <div className="pt-4 border-t border-slate-800/80 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                    <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                    Supabase Database Setup (One-Time SQL Script)
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Creates the <code className="text-blue-300 font-mono">portfolio_settings</code> table and enables instant live updates.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(SUPABASE_SETUP_SQL);
+                      setCopiedSql(true);
+                      setTimeout(() => setCopiedSql(false), 2500);
+                      onShowToast('success', 'SQL Script Copied!', 'Paste it in your Supabase SQL Editor and click Run.');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-xs font-medium transition-all"
+                  >
+                    {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedSql ? 'Copied to Clipboard!' : 'Copy SQL Setup Script'}
+                  </button>
+                  <a
+                    href="https://supabase.com/dashboard"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 transition-colors"
+                  >
+                    <span>Supabase Dashboard</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Sync to Source Code (initialData.ts) for Static Deployments */}

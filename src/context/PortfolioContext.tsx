@@ -8,6 +8,14 @@ import {
   INITIAL_SKILL_GROUPS 
 } from '../data/initialData';
 import { migrateProjectToDynamicSections } from '../lib/projectMigration';
+import {
+  fetchMongoSiteData,
+  saveMongoSiteData,
+  testMongoConnection,
+  saveCustomMongoUri,
+  clearCustomMongoUri,
+  getCustomMongoUri,
+} from '../lib/mongoApi';
 import { 
   fetchFullSiteData, 
   saveFullSiteData, 
@@ -35,6 +43,7 @@ interface PortfolioContextType {
   lockoutRemainingSeconds: number;
   cloudSyncStatus: 'connected' | 'disconnected' | 'error' | 'syncing';
   cloudSyncError: string | null;
+  activeCloudProvider: 'mongodb' | 'supabase' | 'none';
   refreshProfilePhoto: () => Promise<void>;
   updateProfile: (updated: Partial<SiteProfile>) => void;
   addProject: (project: Omit<Project, 'id' | 'createdAt'>) => Project;
@@ -186,10 +195,9 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   // Cloud Sync State
-  const [cloudSyncStatus, setCloudSyncStatus] = useState<'connected' | 'disconnected' | 'error' | 'syncing'>(() => {
-    return isSupabaseConfigured() ? 'syncing' : 'disconnected';
-  });
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'connected' | 'disconnected' | 'error' | 'syncing'>('syncing');
   const [cloudSyncError, setCloudSyncError] = useState<string | null>(null);
+  const [activeCloudProvider, setActiveCloudProvider] = useState<'mongodb' | 'supabase' | 'none'>('none');
 
   // Generate complete TypeScript code representation of initialData.ts
   const generateInitialDataTsCode = (): string => {
@@ -252,18 +260,59 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
     }
   };
 
-  // Test Cloud Connection
+  // Test Cloud Connection (supports both MongoDB Atlas and Supabase)
   const testCloudConnection = async (testUrl?: string, testKey?: string) => {
+    const rawTarget = (testUrl || getCustomMongoUri() || getSupabaseConfig().url).trim();
+    if (rawTarget.startsWith('mongodb+srv://') || rawTarget.startsWith('mongodb://')) {
+      const res = await testMongoConnection(testUrl);
+      if (res.success) {
+        setActiveCloudProvider('mongodb');
+      }
+      return res;
+    }
+
+    // If no target provided, check if MongoDB serverless is already connected via Vercel env
+    if (!testUrl && !testKey) {
+      const mongoStatus = await testMongoConnection();
+      if (mongoStatus.success) {
+        setActiveCloudProvider('mongodb');
+        return mongoStatus;
+      }
+    }
+
     return await testSupabaseConnection(testUrl, testKey);
   };
 
   // Save Custom Cloud Credentials
   const saveCloudConfig = async (url: string, key: string) => {
+    const clean = url.trim();
+    if (clean.startsWith('mongodb+srv://') || clean.startsWith('mongodb://')) {
+      saveCustomMongoUri(clean);
+      const test = await testMongoConnection(clean);
+      if (test.success) {
+        setCloudSyncStatus('connected');
+        setCloudSyncError(null);
+        setActiveCloudProvider('mongodb');
+        saveMongoSiteData({
+          profile,
+          projects,
+          tools,
+          skillGroups,
+          certificates,
+        }, clean);
+      } else {
+        setCloudSyncStatus('error');
+        setCloudSyncError(test.message);
+      }
+      return test;
+    }
+
     saveCustomSupabaseConfig(url, key);
     const test = await testSupabaseConnection(url, key);
     if (test.success) {
       setCloudSyncStatus('connected');
       setCloudSyncError(null);
+      setActiveCloudProvider('supabase');
       // Immediately trigger upload of local data
       saveFullSiteData({
         profile,
@@ -280,15 +329,39 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
   };
 
   const clearCloudConfig = () => {
+    clearCustomMongoUri();
     clearCustomSupabaseConfig();
+    setActiveCloudProvider('none');
     setCloudSyncStatus('disconnected');
     setCloudSyncError(null);
   };
 
-  // Unified publish action: saves directly to Supabase cloud (if configured) or local code
+  // Unified publish action: saves directly to MongoDB Atlas or Supabase cloud or local code
   const publishToLiveWebsite = async (): Promise<{ success: boolean; message: string; tableMissing?: boolean }> => {
+    setCloudSyncStatus('syncing');
+
+    // 1. Try publishing to MongoDB Atlas
+    const mongoRes = await saveMongoSiteData({
+      profile,
+      projects,
+      tools,
+      skillGroups,
+      certificates,
+    });
+
+    if (mongoRes.success) {
+      setCloudSyncStatus('connected');
+      setCloudSyncError(null);
+      setActiveCloudProvider('mongodb');
+      syncToLocalDisk().catch(() => {});
+      return {
+        success: true,
+        message: 'Published to MongoDB Atlas! Your live website is updated for all visitors worldwide.',
+      };
+    }
+
+    // 2. If MongoDB is not configured or failed, try Supabase if configured
     if (isSupabaseConfigured()) {
-      setCloudSyncStatus('syncing');
       const res = await saveFullSiteData({
         profile,
         projects,
@@ -300,6 +373,7 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
       if (res.success) {
         setCloudSyncStatus('connected');
         setCloudSyncError(null);
+        setActiveCloudProvider('supabase');
         syncToLocalDisk().catch(() => {});
         return {
           success: true,
@@ -316,7 +390,7 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
       }
     }
 
-    // Fallback: local dev file sync
+    // 3. Fallback: local dev file sync
     const diskRes = await syncToLocalDisk();
     if (diskRes.success) {
       return {
@@ -325,9 +399,11 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
       };
     }
 
+    setCloudSyncStatus('error');
+    setCloudSyncError(mongoRes.message);
     return {
       success: false,
-      message: 'Supabase is not configured and local dev server is not active.',
+      message: mongoRes.message || 'Configure MONGODB_URI in Vercel to enable 1-click live updates!',
     };
   };
 
@@ -362,6 +438,39 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
   useEffect(() => {
     let isMounted = true;
     const loadFromCloud = async () => {
+      // 1. First attempt to load from MongoDB Atlas
+      try {
+        if (isMounted) setCloudSyncStatus('syncing');
+        const mongoData = await fetchMongoSiteData();
+        if (!isMounted) return;
+
+        if (mongoData && (mongoData.profile || mongoData.projects)) {
+          setCloudSyncStatus('connected');
+          setCloudSyncError(null);
+          setActiveCloudProvider('mongodb');
+
+          if (mongoData.profile) {
+            setProfile((prev) => ({ ...prev, ...mongoData.profile }));
+          }
+          if (mongoData.projects && Array.isArray(mongoData.projects) && mongoData.projects.length > 0) {
+            setProjects(mongoData.projects.map(migrateProjectToDynamicSections));
+          }
+          if (mongoData.tools && Array.isArray(mongoData.tools) && mongoData.tools.length > 0) {
+            setTools(mongoData.tools);
+          }
+          if (mongoData.skillGroups && Array.isArray(mongoData.skillGroups) && mongoData.skillGroups.length > 0) {
+            setSkillGroups(mongoData.skillGroups);
+          }
+          if (mongoData.certificates && Array.isArray(mongoData.certificates) && mongoData.certificates.length > 0) {
+            setCertificates(mongoData.certificates);
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('Initial MongoDB load check:', err);
+      }
+
+      // 2. Fall back to Supabase if configured
       if (!isSupabaseConfigured()) {
         if (isMounted) {
           setCloudSyncStatus('disconnected');
@@ -378,6 +487,7 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
         if (remote) {
           setCloudSyncStatus('connected');
           setCloudSyncError(null);
+          setActiveCloudProvider('supabase');
 
           if (remote.profile) {
             setProfile((prev) => ({ ...prev, ...remote.profile }));
@@ -950,6 +1060,7 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
         importData,
         cloudSyncStatus,
         cloudSyncError,
+        activeCloudProvider,
         testCloudConnection,
         saveCloudConfig,
         clearCloudConfig,
