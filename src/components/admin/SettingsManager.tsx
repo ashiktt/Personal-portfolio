@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { IconLinkedin, IconGithub } from '../ui/BrandIcons';
 import { usePortfolio } from '../../context/PortfolioContext';
-import { uploadProfilePhoto, isSupabaseConfigured, getSupabaseConfig, DEFAULT_FALLBACK_AVATAR } from '../../lib/supabase';
+import { uploadProfilePhoto, isSupabaseConfigured, getSupabaseConfig, DEFAULT_FALLBACK_AVATAR, SUPABASE_SETUP_SQL } from '../../lib/supabase';
 
 interface SettingsManagerProps {
   onShowToast: (type: 'success' | 'error' | 'info', title: string, message?: string) => void;
@@ -59,6 +59,8 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
   const [isTestingCloud, setIsTestingCloud] = useState(false);
   const [isSavingCloud, setIsSavingCloud] = useState(false);
   const [cloudTestMessage, setCloudTestMessage] = useState<string | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [showSqlGuide, setShowSqlGuide] = useState(false);
 
   // Sync to disk state
   const [isSyncingDisk, setIsSyncingDisk] = useState(false);
@@ -947,6 +949,16 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
                   {cloudSyncStatus === 'error' ? 'Connection Error' : 'Local Only (No Cloud DB)'}
                 </span>
               )}
+              {getSupabaseConfig().source === 'vercel' && (
+                <span className="px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/25 text-[10px] font-mono">
+                  Auto-detected from Vercel
+                </span>
+              )}
+              {getSupabaseConfig().source === 'custom' && (
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/25 text-[10px] font-mono">
+                  Custom Browser Override
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 mt-1">
               Connect your Supabase project so changes in this admin dashboard immediately appear on your live website for all visitors worldwide.
@@ -1055,6 +1067,45 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ onShowToast })
                 Disconnect
               </button>
             )}
+          </div>
+
+          {/* One-Click Supabase SQL Setup */}
+          <div className="pt-4 border-t border-slate-800/80 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                  <FileCode className="w-3.5 h-3.5 text-blue-400" />
+                  Supabase Database Setup (One-Time SQL Script)
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Creates the <code className="text-blue-300 font-mono">portfolio_settings</code> table and enables instant live updates.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(SUPABASE_SETUP_SQL);
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 2500);
+                    onShowToast('success', 'SQL Script Copied!', 'Paste it in your Supabase SQL Editor and click Run.');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 text-xs font-medium transition-all"
+                >
+                  {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedSql ? 'Copied to Clipboard!' : 'Copy SQL Setup Script'}
+                </button>
+                <a
+                  href="https://supabase.com/dashboard"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 transition-colors"
+                >
+                  <span>Supabase Dashboard</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </div>

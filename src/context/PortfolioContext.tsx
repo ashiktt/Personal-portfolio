@@ -63,11 +63,12 @@ interface PortfolioContextType {
   resetToDefaults: () => void;
   exportData: () => string;
   importData: (jsonString: string) => { success: boolean; message: string };
-  testCloudConnection: (url?: string, key?: string) => Promise<{ success: boolean; message: string }>;
-  saveCloudConfig: (url: string, key: string) => Promise<{ success: boolean; message: string }>;
+  testCloudConnection: (url?: string, key?: string) => Promise<{ success: boolean; message: string; tableMissing?: boolean }>;
+  saveCloudConfig: (url: string, key: string) => Promise<{ success: boolean; message: string; tableMissing?: boolean }>;
   clearCloudConfig: () => void;
   syncToLocalDisk: () => Promise<{ success: boolean; message: string }>;
   generateInitialDataTsCode: () => string;
+  publishToLiveWebsite: () => Promise<{ success: boolean; message: string; tableMissing?: boolean }>;
 }
 
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
@@ -282,6 +283,52 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
     clearCustomSupabaseConfig();
     setCloudSyncStatus('disconnected');
     setCloudSyncError(null);
+  };
+
+  // Unified publish action: saves directly to Supabase cloud (if configured) or local code
+  const publishToLiveWebsite = async (): Promise<{ success: boolean; message: string; tableMissing?: boolean }> => {
+    if (isSupabaseConfigured()) {
+      setCloudSyncStatus('syncing');
+      const res = await saveFullSiteData({
+        profile,
+        projects,
+        tools,
+        skillGroups,
+        certificates,
+      });
+
+      if (res.success) {
+        setCloudSyncStatus('connected');
+        setCloudSyncError(null);
+        syncToLocalDisk().catch(() => {});
+        return {
+          success: true,
+          message: 'Synced to Supabase! Your live website is updated for all visitors worldwide.',
+        };
+      } else {
+        setCloudSyncStatus('error');
+        setCloudSyncError(res.error || 'Failed to persist to cloud database.');
+        return {
+          success: false,
+          tableMissing: res.tableMissing,
+          message: res.error || 'Failed to save to Supabase cloud database.',
+        };
+      }
+    }
+
+    // Fallback: local dev file sync
+    const diskRes = await syncToLocalDisk();
+    if (diskRes.success) {
+      return {
+        success: true,
+        message: 'Saved to src/data/initialData.ts! Commit & git push to update your live website.',
+      };
+    }
+
+    return {
+      success: false,
+      message: 'Supabase is not configured and local dev server is not active.',
+    };
   };
 
   // Supabase Cloud Synchronization (Loads latest data from Supabase for all visitors worldwide)
@@ -908,6 +955,7 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
         clearCloudConfig,
         syncToLocalDisk,
         generateInitialDataTsCode,
+        publishToLiveWebsite,
       }}
     >
       {children}

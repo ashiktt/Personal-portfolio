@@ -18,6 +18,7 @@ import {
   Database
 } from 'lucide-react';
 import { usePortfolio } from '../../context/PortfolioContext';
+import { SUPABASE_SETUP_SQL } from '../../lib/supabase';
 import { ProjectManager } from './ProjectManager';
 import { CertificateManager } from './CertificateManager';
 import { SkillsManager } from './SkillsManager';
@@ -40,13 +41,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onShowToast }) => {
     profile,
     cloudSyncStatus,
     cloudSyncError,
-    syncToLocalDisk,
+    publishToLiveWebsite,
     generateInitialDataTsCode,
   } = usePortfolio();
   
   const [activeTab, setActiveTab] = useState<'projects' | 'certificates' | 'skills' | 'messages' | 'settings'>('projects');
   const [isPublishing, setIsPublishing] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showSqlModal, setShowSqlModal] = useState(false);
   const navigate = useNavigate();
 
   const unreadMessagesCount = messages.filter((m) => !m.read).length;
@@ -106,16 +108,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onShowToast }) => {
             <button
               onClick={async () => {
                 setIsPublishing(true);
-                const res = await syncToLocalDisk();
+                const res = await publishToLiveWebsite();
                 setIsPublishing(false);
                 if (res.success) {
-                  onShowToast('success', 'Changes Saved to initialData.ts', 'Run git commit & push to update your live website!');
+                  onShowToast('success', 'Live Website Updated!', res.message);
+                } else if (res.tableMissing) {
+                  onShowToast('error', 'Supabase Database Setup Required', res.message);
+                  setShowSqlModal(true);
                 } else {
+                  onShowToast('info', 'Live Update Guide', res.message);
                   setShowPublishModal(true);
                 }
               }}
               disabled={isPublishing}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600/90 hover:bg-blue-600 border border-blue-400/30 text-xs font-semibold text-white shadow-md shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 border border-blue-400/30 text-xs font-semibold text-white shadow-md shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50"
               title="Save changes so your live website updates"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isPublishing ? 'animate-spin' : ''}`} />
@@ -378,6 +384,76 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onShowToast }) => {
                 className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:text-white"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supabase SQL Setup Modal (appears if table 'portfolio_settings' is missing) */}
+      {showSqlModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-xl p-6 sm:p-8 rounded-3xl bg-[#0E1322] border border-slate-800 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">One-Time Supabase Database Setup</h3>
+                  <p className="text-xs text-slate-400">Table &ldquo;portfolio_settings&rdquo; needs to be created</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSqlModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300">
+              <p className="text-slate-300 leading-relaxed">
+                Your portfolio connected to Supabase successfully, but the required table has not been created yet in your Supabase project.
+              </p>
+              
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                <span className="font-semibold text-white block">2 Simple Steps:</span>
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-400">
+                  <li>Click <span className="text-white font-medium">&ldquo;Copy SQL Script&rdquo;</span> below.</li>
+                  <li>Go to your Supabase Dashboard &rarr; <b>SQL Editor</b> &rarr; paste the code and click <b>Run</b>!</li>
+                </ol>
+
+                <div className="pt-2 flex gap-3">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(SUPABASE_SETUP_SQL);
+                      onShowToast('success', 'SQL Copied!', 'Paste into your Supabase SQL Editor and click Run.');
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/20"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy SQL Script</span>
+                  </button>
+
+                  <a
+                    href="https://supabase.com/dashboard"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium"
+                  >
+                    <span>Open Supabase Dashboard &rarr;</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setShowSqlModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:text-white"
+              >
+                Done
               </button>
             </div>
           </div>
