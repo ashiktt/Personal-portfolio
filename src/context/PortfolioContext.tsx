@@ -288,12 +288,13 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
     const clean = url.trim();
     if (clean.startsWith('mongodb+srv://') || clean.startsWith('mongodb://')) {
       saveCustomMongoUri(clean);
+      clearCustomSupabaseConfig(); // Clear out old Supabase override
       const test = await testMongoConnection(clean);
       if (test.success) {
         setCloudSyncStatus('connected');
         setCloudSyncError(null);
         setActiveCloudProvider('mongodb');
-        saveMongoSiteData({
+        await saveMongoSiteData({
           profile,
           projects,
           tools,
@@ -308,6 +309,7 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
     }
 
     saveCustomSupabaseConfig(url, key);
+    clearCustomMongoUri(); // Clear out old Mongo override
     const test = await testSupabaseConnection(url, key);
     if (test.success) {
       setCloudSyncStatus('connected');
@@ -341,6 +343,7 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
     setCloudSyncStatus('syncing');
 
     // 1. Try publishing to MongoDB Atlas
+    const customMongo = getCustomMongoUri();
     const mongoRes = await saveMongoSiteData({
       profile,
       projects,
@@ -357,6 +360,16 @@ export const DESIGN_SKILLS = INITIAL_SKILL_GROUPS;
       return {
         success: true,
         message: 'Published to MongoDB Atlas! Your live website is updated for all visitors worldwide.',
+      };
+    }
+
+    // If custom MongoDB is in use, report MongoDB status directly (never fall back to Supabase)
+    if (customMongo) {
+      setCloudSyncStatus('error');
+      setCloudSyncError(mongoRes.message);
+      return {
+        success: false,
+        message: mongoRes.message || 'Failed to save to MongoDB Atlas.',
       };
     }
 

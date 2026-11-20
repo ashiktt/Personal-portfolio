@@ -321,19 +321,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ onShowToast }) => {
             </div>
 
             <div className="space-y-4 text-xs text-slate-300">
-              <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-2">
-                <span className="font-bold text-blue-300 block text-sm">Option 1: Connect Supabase (0 Code / Instant)</span>
+              <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+                <span className="font-bold text-emerald-300 block text-sm">Option 1: Connect MongoDB Atlas (Instant Live Sync)</span>
                 <p className="text-slate-400 leading-relaxed">
-                  Connect your free Supabase database in Settings. Every project, tool, and certificate you add will immediately appear on your live website for all visitors worldwide without touching code!
+                  Connect your MongoDB Atlas database in Settings or set <code className="text-emerald-300">MONGODB_URI</code> in Vercel. Every project, tool, and certificate you add will immediately appear on your live website for all visitors worldwide!
                 </p>
                 <button
                   onClick={() => {
                     setShowPublishModal(false);
                     setActiveTab('settings');
                   }}
-                  className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs mt-1"
+                  className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs mt-1 shadow-md shadow-emerald-500/20"
                 >
-                  Configure Supabase Cloud in Settings →
+                  Configure MongoDB Atlas in Settings →
                 </button>
               </div>
 
