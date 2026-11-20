@@ -81,6 +81,21 @@ DROP POLICY IF EXISTS "Allow update to portfolio-images" ON storage.objects;
 CREATE POLICY "Allow update to portfolio-images"
 ON storage.objects FOR UPDATE TO anon, authenticated, public USING (bucket_id = 'portfolio-images');`;
 
+export const normalizeSupabaseUrl = (rawUrl: string): string => {
+  if (!rawUrl) return '';
+  let url = rawUrl.trim().replace(/^['"]|['"]$/g, '');
+  // If user pasted dashboard URL like https://supabase.com/dashboard/project/xyz
+  if (url.includes('supabase.com/dashboard/project/')) {
+    const ref = url.split('supabase.com/dashboard/project/')[1]?.split('/')[0]?.split('?')[0];
+    if (ref) {
+      url = `https://${ref}.supabase.co`;
+    }
+  }
+  // Strip trailing slashes
+  url = url.replace(/\/+$/, '');
+  return url;
+};
+
 export const getSupabaseConfig = (): SupabaseConfig => {
   // 1. Check custom overrides from Admin Settings (in localStorage)
   const customUrl = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.CUSTOM_URL) : null;
@@ -88,7 +103,7 @@ export const getSupabaseConfig = (): SupabaseConfig => {
 
   if (customUrl && customKey && customUrl.trim() && customKey.trim()) {
     return {
-      url: customUrl.trim(),
+      url: normalizeSupabaseUrl(customUrl),
       anonKey: customKey.trim(),
       isCustom: true,
       source: 'custom',
@@ -98,7 +113,7 @@ export const getSupabaseConfig = (): SupabaseConfig => {
   // 2. Check all possible Vercel / build environment variables
   // Vercel can set VITE_SUPABASE_*, SUPABASE_*, or NEXT_PUBLIC_SUPABASE_*
   const proc = typeof globalThis !== 'undefined' ? (globalThis as any).process : undefined;
-  const envUrl = (
+  const envUrl = normalizeSupabaseUrl(
     (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
     (import.meta.env.SUPABASE_URL as string | undefined) ||
     (import.meta.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined) ||
@@ -106,7 +121,7 @@ export const getSupabaseConfig = (): SupabaseConfig => {
     (proc?.env?.SUPABASE_URL as string | undefined) ||
     (proc?.env?.NEXT_PUBLIC_SUPABASE_URL as string | undefined) ||
     ''
-  ).trim();
+  );
 
   const envKey = (
     (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
@@ -175,8 +190,9 @@ export const getSupabaseClient = (): SupabaseClient | null => {
 };
 
 export const saveCustomSupabaseConfig = (url: string, anonKey: string): void => {
+  const cleanUrl = normalizeSupabaseUrl(url);
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEYS.CUSTOM_URL, url.trim());
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_URL, cleanUrl);
     localStorage.setItem(STORAGE_KEYS.CUSTOM_KEY, anonKey.trim());
   }
   cachedClient = null;
@@ -199,7 +215,8 @@ export const testSupabaseConnection = async (
   testKey?: string
 ): Promise<{ success: boolean; message: string; tableMissing?: boolean }> => {
   const cfg = getSupabaseConfig();
-  const url = testUrl !== undefined ? testUrl.trim() : cfg.url;
+  const rawUrl = testUrl !== undefined ? testUrl : cfg.url;
+  const url = normalizeSupabaseUrl(rawUrl);
   const key = testKey !== undefined ? testKey.trim() : cfg.anonKey;
 
   if (!url || !key) {
@@ -240,6 +257,13 @@ export const testSupabaseConnection = async (
             'Connected to your Supabase project, but table "portfolio_settings" was not found. Click "Copy SQL Setup Script" below and run it in your Supabase SQL Editor.',
         };
       }
+      if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
+        return {
+          success: false,
+          message:
+            'Could not reach Supabase (Failed to fetch). Possible causes: 1) Your project at supabase.com is PAUSED (click Restore in Supabase), 2) The Project URL has a typo or wrong project ID, or 3) An adblocker or browser shield is blocking supabase.co.',
+        };
+      }
       return {
         success: false,
         message: `Supabase error: ${error.message}`,
@@ -251,6 +275,13 @@ export const testSupabaseConnection = async (
       message: 'Supabase connection verified! Cloud sync is operational and updating your live website.',
     };
   } catch (err: any) {
+    if (err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
+      return {
+        success: false,
+        message:
+          'Could not reach Supabase (Failed to fetch). Possible causes: 1) Your project at supabase.com is PAUSED (click Restore in Supabase), 2) The Project URL has a typo or wrong project ID, or 3) An adblocker or browser shield is blocking supabase.co.',
+      };
+    }
     return {
       success: false,
       message: `Connection error: ${err?.message || 'Could not connect to host.'}`,
@@ -345,12 +376,20 @@ export const saveFullSiteData = async (
       console.error('Supabase: Error saving site_data:', error);
       const isMissing =
         error.message.includes('portfolio_settings') && error.message.includes('does not exist');
-      return { success: false, error: error.message, tableMissing: isMissing };
+      const isFetchErr = error.message.includes('Failed to fetch') || error.message.includes('fetch');
+      const msg = isFetchErr
+        ? 'Could not reach Supabase (Failed to fetch). Please check if your project is active or URL is correct.'
+        : error.message;
+      return { success: false, error: msg, tableMissing: isMissing };
     }
     return { success: true };
   } catch (err: any) {
     console.error('Supabase: Network error saving full site data:', err);
-    return { success: false, error: err?.message || 'Network error occurred' };
+    const isFetchErr = err?.message?.includes('Failed to fetch');
+    const msg = isFetchErr
+      ? 'Could not reach Supabase (Failed to fetch). Please check if your project is active or URL is correct.'
+      : err?.message || 'Network error occurred';
+    return { success: false, error: msg };
   }
 };
 
